@@ -1,0 +1,10 @@
+1c-server/installer/
+1c-server/logs/
+nginx/logs/
+nginx/certbot/
+haspd/data
+haspd/logs 
+pgsql/postgresql_17.2_4.1C_x86_64_rpm.tar.bz2
+pgsql/postgresql_17.2_4.1C_x86_64_addon_rpm.tar.bz2
+1c-server/haspd_8.53-setup.tar.gz  
+.idea
