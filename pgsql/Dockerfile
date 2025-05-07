@@ -40,24 +40,17 @@ RUN apt-get update && apt-get install -y locales && \
 # Копируем архив с PostgreSQL и другие пакеты
 COPY installer /tmp/installer
 
-
 # Установка всех .deb файлов и автоматическая загрузка зависимостей
 RUN dpkg -i /tmp/installer/packages/*.deb || (apt-get update && apt-get install -y --fix-broken)
 
 RUN dpkg -i /tmp/installer/postgresql/*.deb || (apt-get update && apt-get install -y --fix-broken)
 
-RUN rm -rf /var/lib/apt/lists/* /tmp/*
-
-# Открытие порта PostgreSQL
-EXPOSE 5432
+RUN rm -rf /var/lib/apt/lists/* /tmp/* 
  
-
-# Копируем entrypoint и конфиги
-
-#RUN mkdir -p $CONF_DIR
-#COPY postgresql.conf $CONF_DIR/postgresql.conf
-#COPY pg_hba.conf $CONF_DIR/pg_hba.conf
-#COPY pg_ident.conf $CONF_DIR/pg_ident
+RUN mkdir -p $CONF_DIR
+COPY postgresql.conf $CONF_DIR/postgresql.conf
+COPY pg_hba.conf $CONF_DIR/pg_hba.conf
+COPY pg_ident.conf $CONF_DIR/pg_ident
 
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

@@ -7,6 +7,17 @@ whoami
 : "${ONEC_USER:?❌ ONEC_USER не задан! Проверь переменные окружения.}"
 : "${ONEC_GROUP:?❌ ONEC_GROUP не задано! Проверь переменные окружения.}"
 : "${PATH_TO_1C:?❌ PATH_TO_1C не задан! Проверь переменные окружения.}"
+
+PWFILE=/run/secrets/pass_pgsql
+ 
+# прочитать пароль из секрета
+if [ -f $PWFILE ]; then
+  export POSTGRES_PASSWORD="$(<"$PWFILE")"
+else
+  echo "⚠️ Секрет /run/secrets/pass_pgsql не найден" >&2
+fi
+ 
+rm $PWFILE  
  
 echo "🧹 Очищаем логи..."
 find "$LOG_DIR" -type f -name "*.log" -exec truncate -s 0 {} \;

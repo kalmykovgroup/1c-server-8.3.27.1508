@@ -8,8 +8,7 @@ services:
     container_name: pgsql
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER} # Пользователь для 1С
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}         # Пароль суперпользователя postgres 
+      POSTGRES_USER: ${POSTGRES_USER} # Пользователь для 1С 
       POSTGRES_DB: ${POSTGRES_DB}                     # Название БД для 1С
       POSTGRES_HOST: ${POSTGRES_HOST}  
       DATA_DIR: ${DATA_DIR}  # Путь к каталогу данных
@@ -22,7 +21,8 @@ services:
       - public
     volumes:
       - pg-data-1c:${DATA_DIR}  # 👈 Данные БД  
-      
+      - ./secrets/pass_pgsql:/run/secrets/pass_pgsql:ro
+  
   server:
     build:
       context: ./1c-server
@@ -48,8 +48,7 @@ services:
       - pgsql
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD} 
+      - POSTGRES_USER=${POSTGRES_USER} 
       - ONEC_VERSION=${ONEC_VERSION}   
       - ONEC_PORT_RANGE=${ONEC_PORT_RANGE}   
       - DOMAIN=${DOMAIN}
@@ -71,7 +70,8 @@ services:
       - 1c-user-home:/home/usr1cv8/.1cv8/ 
       - ./.env:/env/.env:ro  
       - ./1c-server/web-config/publication:${APACHE_PUBLICATION_CONF_DIR} 
-      - ./1c-server/web-config/vrd:/var/www/ws 
+      - ./1c-server/web-config/vrd:/var/www/ws
+      - ./secrets/pass_pgsql:/run/secrets/pass_pgsql:ro 
     networks:
        internal_pgsql:  # Для связи с PostgreSQL 
        public:    # Для внешнего доступа (nginx, ping, telnet)
