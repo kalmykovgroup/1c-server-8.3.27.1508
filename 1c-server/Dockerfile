@@ -1,7 +1,10 @@
-﻿FROM ubuntu:24.04
- 
- 
- # 📁 Установим переменные
+﻿FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+
+
+# --- Аргументы сборки ------------------------------------------------
 ARG ONEC_VERSION
 ARG ONEC_USER
 ARG ONEC_GROUP
@@ -12,11 +15,17 @@ ARG CACHE
 ARG LICENSES
 ARG HASP
 ARG PATH_TO_1C
-
 ARG WS_PUBLIC_DIR
 ARG CLUSTER_PORT_RAGENT
-ARG APACHE_PUBLICATION_CONF_DIR 
+ARG APACHE_PUBLICATION_CONF_DIR
+ARG APACHE_PUBLICATION_CONF_FILE
+ARG ONEC_INSTALLER_NAME
 
+# --- Переменные среды ------------------------------------------------
+ENV LANG=ru_RU.UTF-8
+ENV LANGUAGE=ru_RU.UTF-8
+ENV LC_ALL=ru_RU.UTF-8
+ENV PATH_TO_1C=${PATH_TO_1C}
 ENV ONEC_VERSION=${ONEC_VERSION}
 ENV ONEC_USER=${ONEC_USER}
 ENV ONEC_GROUP=${ONEC_GROUP}
@@ -26,117 +35,82 @@ ENV DATA=${DATA}
 ENV CACHE=${CACHE}
 ENV LICENSES=${LICENSES}
 ENV HASP=${HASP}
-ENV PATH_TO_1C=${PATH_TO_1C}
+ENV WS_PUBLIC_DIR=${WS_PUBLIC_DIR}
+ENV CLUSTER_PORT_RAGENT=${CLUSTER_PORT_RAGENT}
+ENV APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR}
+ENV APACHE_PUBLICATION_CONF_FILE=${APACHE_PUBLICATION_CONF_FILE}
+ENV ONEC_INSTALLER_NAME=${ONEC_INSTALLER_NAME}
+ 
 
 ENV WS_PUBLIC_DIR=${WS_PUBLIC_DIR}
 ENV CLUSTER_PORT_RAGENT=${CLUSTER_PORT_RAGENT}
 ENV APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR} 
 
-ENV DEBIAN_FRONTEND=noninteractive
+# --- Создание пользователя 1С ----------------------------------------
+RUN groupadd -r ${ONEC_GROUP} && useradd -m -r -g ${ONEC_GROUP} -s /bin/bash ${ONEC_USER}
 
-# 🧑‍💼 Пользователь и группа для 1С
-RUN groupadd -r ${ONEC_GROUP} && useradd -m -r -g ${ONEC_GROUP} -s /bin/bash ${ONEC_USER} 
-
-# Починим недостающие ключи GPG для Ubuntu 24.04
-
-RUN apt-get update || true \
- && apt-get install -y --no-install-recommends gnupg ca-certificates \
- && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 3B4FE6ACC0B21F32 \
- && apt-get update 
-
-# Включаем поддержку i386 в источниках
-RUN echo "deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse" > /etc/apt/sources.list.d/i386.list && \
-    echo "deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse" >> /etc/apt/sources.list.d/i386.list && \
-    echo "deb [arch=amd64,i386] http://security.ubuntu.com/ubuntu noble-security main restricted universe multiverse" >> /etc/apt/sources.list.d/i386.list
-
- 
-# Установка 32-битных библиотек, необходимых для 1С
-RUN dpkg --add-architecture i386 && \
- apt-get update && apt-get install -y --no-install-recommends \
-    lib32z1 \
-    libc6-i386 \
-    libx11-6 \
-    libxext6 \
-    libxcb1 \
-    libxrender1 \
-    libxrandr2 \
-    libxi6 \
-    libxtst6 && \
- apt-get clean && rm -rf /var/lib/apt/lists/*
-
- 
-#VNC
+# --- Установка зависимостей для 1С-сервера --------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    xorg \
-    x11-apps \
-    x11-utils \
-    x11-xserver-utils \
-    # Лёгкий оконный менеджер
-    openbox \
-    # Терминал в X
-    xterm \
-    tigervnc-standalone-server \
-    tigervnc-common \
-    tigervnc-tools \
-    # Нужен для работы openbox-xdg-autostart
-    python3-xdg \
-    #Используется для отображения правого меню мыши (по умолчанию) Без него Openbox пишет: #Unable to find a valid menu file "/var/lib/openbox/debian-menu.xml"
-    menu \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
-    
-    # --- Для минимальной работы 1С и сервисов -----------------------  
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Менеджер процессов 1С
+    # Менеджер процессов supervisor
     supervisor \
-    # Клиент PostgreSQL  
+    # Клиент PostgreSQL
     postgresql-client \
-    # Веб-сервер Apache (для работы для ws в этой версии он требует наличие) 
+    # Веб-сервер Apache
     apache2 \
     # Утилиты Apache
     apache2-utils \
-    # SSL-сертификаты (HTTPS, подключение к внешним сервисам) 
+    # SSL-сертификаты
     ca-certificates \
-    # Для шаблонов конфигурации (например, supervisor.template.conf)  
+    # Генерация шаблонов из шаблонов конфигурации
     gettext \
-    # Поддержка локалей (обязательно для русского языка)
+    # Поддержка локалей
     locales \
-    # Работа со шрифтами (PDF-отчеты, печатные формы)
+    # Работа со шрифтами (печатные формы, PDF)
     fontconfig \
-    #Для работы .sh файлов (проверка на доступность сервисов 1с)
+    # Базовые шрифты
+    fonts-dejavu-core \
+    # Проверка доступности сервисов
     netcat-openbsd \
-    # Использует start-ragent.sh. Утилиты для работы с сетью (ping, traceroute и т.д.)
+    # Утилиты для работы с сетью (ping, ip и др.)
     iproute2 \
- && apt-get clean && rm -rf /var/lib/apt/lists/*  
-
-    # --- Для локализации и отображения шрифтов --------------------  
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Подсистема шрифтов
-    fontconfig \
-    # Базовые шрифты 
-    fonts-dejavu-core
-
-    # --- Для сборки и добавления репозиториев (build-time) -------  
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Импорт PGP-ключей
-    gnupg \
-    # add-apt-repository
+    # Работа с репозиториями и ключами
     software-properties-common \
-    #Генерация русской и английской локалей
- && locale-gen en_US.UTF-8 ru_RU.UTF-8 \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/* 
+    gnupg \
+ && locale-gen ru_RU.UTF-8 \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Установка шрифтов Microsoft Core Font (требуется для 1С)
-RUN apt-get update && \
-    apt-get install -y ttf-mscorefonts-installer && \
-    echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
+
+# --- Установка зависимостей для VNC и GUI (активация лицензии) ------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # X-сервер (виртуальное графическое окружение)
+    xorg \
+    # Утилиты X11 (xrandr, xdpyinfo и др.)
+    x11-utils \
+    # Дополнительные утилиты X-сервера
+    x11-xserver-utils \
+    # Лёгкий оконный менеджер
+    openbox \
+    # Терминал в GUI
+    xterm \
+    # Сервер VNC
+    tigervnc-standalone-server \
+    # Общие компоненты VNC
+    tigervnc-common \
+    # Поддержка xdg-меню в openbox
+    python3-xdg \
+    # Меню приложений для Openbox
+    menu \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+
+# --- Установка шрифтов Microsoft Core Fonts (для печати) ------------
+RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
+    apt-get update && \
     apt-get install -y --no-install-recommends ttf-mscorefonts-installer && \
     fc-cache -f -v && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
- 
+    apt-get clean && rm -rf /var/lib/apt/lists/* 
 
- 
+
 # 🌐 Локализация
 ENV LANG=ru_RU.UTF-8
 ENV LANGUAGE=ru_RU.UTF-8
@@ -145,16 +119,14 @@ ENV LC_ALL=ru_RU.UTF-8
 # 📂 Добавим 1С в PATH
 ENV PATH="${PATH_TO_1C}:${PATH}"
 
-# 📦 Установка 1С
-COPY installer/setup-full-${ONEC_VERSION}-x86_64.run /tmp/
-RUN chmod +x /tmp/setup-full-${ONEC_VERSION}-x86_64.run && \
-    /tmp/setup-full-${ONEC_VERSION}-x86_64.run \
+# --- Установка платформы 1С ------------------------------------------
+COPY installer/${ONEC_INSTALLER_NAME} /tmp/
+RUN chmod +x /tmp/${ONEC_INSTALLER_NAME} && /tmp/${ONEC_INSTALLER_NAME} \
       --mode unattended \
-      --enable-components server,server_admin,liberica_jre,v8_install_deps,ws,ru,client_full,desktop_icons \
-      --disable-components client_thin,client_thin_fib \
+      --enable-components server,server_admin,liberica_jre,v8_install_deps,ws,ru,client_full \
+      --disable-components client_thin,client_thin_fib,desktop_icons \
       --debugtrace /tmp/install.log && \
-    rm -f /tmp/setup-full-${ONEC_VERSION}-x86_64.run 
-
+    rm -f /tmp/*
 
 # server                      -  Сервер 1С. Без него сервер не будет работать.
 # server_admin                -  Администрирование лицензий (веб-интерфейс на порту 1541).  
@@ -173,13 +145,20 @@ RUN chmod +x /tmp/setup-full-${ONEC_VERSION}-x86_64.run && \
 # desktop_icons               -  Ярлыки на рабочем столе (бессмысленно в контейнере).
 
 
-# 📁 Каталоги и права 
+# 📁 Каталоги, логи и права
 RUN mkdir -p \
     ${LOG_DIR} \
     ${DATA} \
     ${CACHE} \
+    ${LICENSES} \
+    ${HASP} \
+    ${BIN} \
+    ${WS_PUBLIC_DIR} \
     /root/.vnc \
-    /home/${ONEC_USER} && \
+    /home/${ONEC_USER} \
+    ${APACHE_PUBLICATION_CONF_DIR} \
+    /var/log/supervisor && \
+# Лог-файлы, которые нужны для supervisor и скриптов
     touch \
          ${LOG_DIR}/ragent.out.log ${LOG_DIR}/ragent.err.log \
          ${LOG_DIR}/ras.out.log ${LOG_DIR}/ras.err.log \
@@ -191,39 +170,54 @@ RUN mkdir -p \
          ${LOG_DIR}/init-web.out.log ${LOG_DIR}/init-web.err.log \
          ${LOG_DIR}/vnc.out.log ${LOG_DIR}/vnc.err.log \
          ${LOG_DIR}/supervisord.log && \
-    chown -R ${ONEC_USER}:${ONEC_GROUP} ${LOG_DIR} ${DATA} ${CACHE} /home/${ONEC_USER} /var/log/supervisor && \
-    chmod -R 775 ${LOG_DIR} ${DATA} ${CACHE} ${LICENSES} /home/${ONEC_USER}
+# Права доступа
+    chown -R ${ONEC_USER}:${ONEC_GROUP} \
+      ${LOG_DIR} \
+      ${DATA} \
+      ${CACHE} \
+      ${LICENSES} \
+      ${HASP} \
+      ${BIN} \
+      ${WS_PUBLIC_DIR} \
+      /home/${ONEC_USER} \
+      /var/log/supervisor && \
+    chmod -R 775 \
+      ${LOG_DIR} \
+      ${DATA} \
+      ${CACHE} \
+      ${LICENSES} \
+      ${HASP} \
+      ${WS_PUBLIC_DIR} \
+      /home/${ONEC_USER}
 
 
-# 🧾 Скрипты, копируем в контейнер
+# 🧾 Копируем скрипты
 COPY init-ib.sh ${BIN}/init-ib.sh
 COPY start-ragent.sh ${BIN}/start-ragent.sh
 COPY init-cluster.sh ${BIN}/init-cluster.sh
 COPY init-server.sh ${BIN}/init-server.sh 
 COPY init-web.sh ${BIN}/init-web.sh  
+COPY start-vnc.sh ${BIN}/start-vnc.sh
  
 #Делаем исполняемыми и передаем право на управление пользователю ${ONEC_USER}:${ONEC_GROUP}
-RUN \
-  chmod +x \
-    ${BIN}/init-ib.sh \
-    ${BIN}/start-ragent.sh \
-    ${BIN}/init-cluster.sh \
-    ${BIN}/init-server.sh \
-    ${BIN}/init-web.sh \
-&& \
-  chown ${ONEC_USER}:${ONEC_GROUP} \
-    ${BIN}/init-ib.sh \
-    ${BIN}/start-ragent.sh \
-    ${BIN}/init-cluster.sh \
-    ${BIN}/init-server.sh
-
+# 🛠️ Права на скрипты
+RUN chmod +x \
+      ${BIN}/init-ib.sh \
+      ${BIN}/start-ragent.sh \
+      ${BIN}/init-cluster.sh \
+      ${BIN}/init-server.sh \
+      ${BIN}/init-web.sh \
+      ${BIN}/start-vnc.sh && \
+    chown ${ONEC_USER}:${ONEC_GROUP} \
+      ${BIN}/init-ib.sh \
+      ${BIN}/start-ragent.sh \
+      ${BIN}/init-cluster.sh \
+      ${BIN}/init-server.sh \
+      ${BIN}/init-web.sh \
+      ${BIN}/start-vnc.sh 
+    
 # ⚙️ Конфигурация supervisor 
 COPY supervisord.template.conf /etc/supervisord.template.conf 
-
-
-# Копируем стартовый скрипт для VNC
-COPY start-vnc.sh ${BIN}/start-vnc.sh
-RUN chmod +x ${BIN}/start-vnc.sh
 
 # Настройка xstartup для VNC
 RUN echo '#!/bin/sh' > /root/.vnc/xstartup && \
@@ -231,6 +225,7 @@ RUN echo '#!/bin/sh' > /root/.vnc/xstartup && \
     echo 'openbox-session &' >> /root/.vnc/xstartup && \
     chmod +x /root/.vnc/xstartup 
 
+# 🌐 Apache: папка для публикации
 RUN mkdir -p ${APACHE_PUBLICATION_CONF_DIR} && \
      touch ${APACHE_PUBLICATION_CONF_DIR}/${APACHE_PUBLICATION_CONF_FILE} && \
     chown root:root ${APACHE_PUBLICATION_CONF_DIR} && \

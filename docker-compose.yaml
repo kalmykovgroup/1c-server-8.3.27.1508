@@ -4,25 +4,22 @@ services:
       context: ./pgsql
       dockerfile: Dockerfile
       args:
-        - CONF_DIR=${PG_CONF_DIR}   
-        - PG_BIN=${PG_BIN}  
+        - CONF_DIR=${PG_CONF_DIR} # Путь к каталогу конфигурации     
     container_name: pgsql
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER} # Пользователь для 1С
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}         # Пароль суперпользователя postgres
-      POSTGRES_USER_1C: ${POSTGRES_USER_1C}
-      POSTGRES_USER_PASSWORD_1C: ${POSTGRES_USER_PASSWORD_1C}  # Пароль для пользователя 1С
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}         # Пароль суперпользователя postgres 
       POSTGRES_DB: ${POSTGRES_DB}                     # Название БД для 1С
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      PG_BIN: ${PG_BIN}   # Путь к бинарникам PostgreSQL
-      CONF_DIR: ${PG_CONF_DIR}  # Путь к каталогу конфигурации
+      POSTGRES_HOST: ${POSTGRES_HOST}  
       DATA_DIR: ${DATA_DIR}  # Путь к каталогу данных
-      SOCKET_DIR: ${SOCKET_DIR}  # Путь к socket 
+      PG_BIN: ${PG_BIN}  # Путь к каталогу данных
+      SOCKET_DIR: ${SOCKET_DIR}  # Путь к socket  
       LANG: ru_RU.UTF-8
       LC_ALL: ru_RU.UTF-8 
     networks:
       - internal_pgsql
+      - public
     volumes:
       - pg-data-1c:${DATA_DIR}  # 👈 Данные БД  
       
@@ -43,6 +40,7 @@ services:
         - WS_PUBLIC_DIR=${WS_PUBLIC_DIR}
         - CLUSTER_PORT_RAGENT=${CLUSTER_PORT_RAGENT}
         - APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR} # /etc/apache2/sites-available 
+        - ONEC_INSTALLER_NAME=${ONEC_INSTALLER_NAME} # /etc/apache2/sites-available 
       dockerfile: Dockerfile 
     container_name: server
     hostname: ${DOMAIN}  # 👈 ОБЯЗАТЕЛЬНО
@@ -50,12 +48,12 @@ services:
       - pgsql
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER_1C}
-      - POSTGRES_PASSWORD=${POSTGRES_USER_PASSWORD_1C} 
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD} 
       - ONEC_VERSION=${ONEC_VERSION}   
       - ONEC_PORT_RANGE=${ONEC_PORT_RANGE}   
       - DOMAIN=${DOMAIN}
-      - ./web-config:/opt/1cv8/x86_64/8.3.25.1560
+      - ./web-config:${PATH_TO_1C}
       #- HOST_IP=host.docker.internal
     ports: 
       - "1540"  # ragent (тонкие клиенты)
@@ -75,8 +73,7 @@ services:
       - ./1c-server/web-config/publication:${APACHE_PUBLICATION_CONF_DIR} 
       - ./1c-server/web-config/vrd:/var/www/ws 
     networks:
-       internal_pgsql:  # Для связи с PostgreSQL
-       internal_hasp:  # Для связи с Haspd
+       internal_pgsql:  # Для связи с PostgreSQL 
        public:    # Для внешнего доступа (nginx, ping, telnet)
          aliases:
            - ${DOMAIN}  # Доменное имя для доступа внутри сети 
@@ -97,7 +94,7 @@ services:
       - hasplm-data:/var/hasplm
       - ./haspd/config/hasplm.ini:/etc/hasplm/hasplm.ini
     networks:
-      internal_hasp:    # Для внешнего доступа (nginx, ping, telnet) 
+      public:  
     restart: unless-stopped
     
   nginx:
@@ -127,9 +124,7 @@ services:
     
 networks:
   internal_pgsql:
-    internal: true  # Скрытая сеть (1C <-> PostgreSQL)
-  internal_hasp:
-    internal: true  # Скрытая сеть (1C <-> Haspd) 
+    internal: true  # Скрытая сеть (1C <-> PostgreSQL) 
   public:
     driver: bridge  # Обычная сеть для nginx 
 volumes:

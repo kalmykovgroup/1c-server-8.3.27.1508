@@ -1,60 +1,65 @@
-﻿FROM rockylinux:9
+﻿FROM ubuntu:22.04
+
+ARG CONF_DIR
+ARG PGSQL_INSTALLER_NAME
+
+ENV CONF_DIR=${CONF_DIR}
+ENV PGSQL_INSTALLER_NAME=${PGSQL_INSTALLER_NAME}
  
-# Устанавливаем необходимые локали
-RUN dnf install -y glibc-langpack-ru && \
-    localedef -i ru_RU -f UTF-8 ru_RU.UTF-8 || true \
-    
+
 ENV LANG=ru_RU.UTF-8
+ENV LANGUAGE=ru_RU:ru
 ENV LC_ALL=ru_RU.UTF-8
 
-ARG CONF_DIR 
-ARG PG_BIN 
-
-ENV CONF_DIR=${CONF_DIR} 
-ENV PG_BIN=${PG_BIN} 
-
-# Устанавливаем базовые утилиты
-RUN dnf install -y \
-    tar \
-    gzip \
+# Установка основных пакетов и зависимостей
+ENV DEBIAN_FRONTEND=noninteractive
+ 
+   
+# Установка утилит для анализа и создания локали
+RUN apt-get update && apt-get install -y --no-install-recommends \
     bzip2 \
-    xz \
-    dnf-utils \
-    epel-release \
- && dnf clean all
+    tar \
+    dpkg \
+    locales-all \
+    ca-certificates \
+    gnupg \
+    wget \
+    curl  \
+    libjson-perl \
+    ssl-cert \
+    ucf \
+    tzdata && \
+    apt-get clean
+    
 
-# Включаем CodeReady Builder (CRB) репозиторий — нужен для perl-IPC-Run
-RUN dnf config-manager --set-enabled crb \
- && dnf install -y perl-IPC-Run \
- && dnf clean all
-
-# Копируем архивы RPM
-COPY postgresql_17.2_4.1C_x86_64_rpm.tar.bz2 /tmp/
-COPY postgresql_17.2_4.1C_x86_64_addon_rpm.tar.bz2 /tmp/
-
-# Распаковываем RPM-файлы
-RUN mkdir -p /tmp/rpms && \
-    tar -xjf /tmp/postgresql_17.2_4.1C_x86_64_rpm.tar.bz2 -C /tmp/rpms && \
-    tar -xjf /tmp/postgresql_17.2_4.1C_x86_64_addon_rpm.tar.bz2 -C /tmp/rpms
-
-# Устанавливаем все найденные RPM-пакеты
-RUN find /tmp/rpms -name "*.rpm" -exec dnf install -y {} + && \
-    rm -rf /tmp/* 
+# Установка русской локали
+RUN apt-get update && apt-get install -y locales && \
+    sed -i 's/# ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/' /etc/locale.gen && \
+    locale-gen ru_RU.UTF-8 
+    
+# Копируем архив с PostgreSQL и другие пакеты
+COPY installer /tmp/installer
 
 
-# Копируем наш entrypoint-скрипт в контейнер
-COPY entrypoint.sh $PG_BIN/entrypoint.sh
-RUN chmod +x $PG_BIN/entrypoint.sh
+# Установка всех .deb файлов и автоматическая загрузка зависимостей
+RUN dpkg -i /tmp/installer/packages/*.deb || (apt-get update && apt-get install -y --fix-broken)
 
-# Создаём директорию для конфигов PostgreSQL
-RUN mkdir -p $CONF_DIR
+RUN dpkg -i /tmp/installer/postgresql/*.deb || (apt-get update && apt-get install -y --fix-broken)
 
-# Копируем конфиги внутрь контейнера
-COPY postgresql.conf $CONF_DIR/postgresql.conf
-COPY pg_hba.conf $CONF_DIR/pg_hba.conf
+RUN rm -rf /var/lib/apt/lists/* /tmp/*
 
-WORKDIR $PG_BIN
+# Открытие порта PostgreSQL
+EXPOSE 5432
+ 
 
-ENTRYPOINT ["./entrypoint.sh"]
+# Копируем entrypoint и конфиги
 
-CMD ["postgres"]
+#RUN mkdir -p $CONF_DIR
+#COPY postgresql.conf $CONF_DIR/postgresql.conf
+#COPY pg_hba.conf $CONF_DIR/pg_hba.conf
+#COPY pg_ident.conf $CONF_DIR/pg_ident
+
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"] 
