@@ -4,7 +4,7 @@ nginx/logs/
 nginx/certbot/
 haspd/data
 haspd/logs 
-pgsql/installer/postgesql/
-1c-server/haspd_8.53-setup.tar.gz  
+pgsql/installer/postgesql/  
 .idea
 secrets/
+pgsql/logs

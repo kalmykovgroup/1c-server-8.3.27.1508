@@ -1,19 +1,31 @@
 ﻿FROM ubuntu:22.04
 
-ARG CONF_DIR
-ARG PGSQL_INSTALLER_NAME
+# Установка основных пакетов и зависимостей
+ENV DEBIAN_FRONTEND=noninteractive 
 
-ENV CONF_DIR=${CONF_DIR}
-ENV PGSQL_INSTALLER_NAME=${PGSQL_INSTALLER_NAME}
+# Получаем ARG'и от docker-compose
+ARG POSTGRES_VERSION
+ARG PG_DATA_DIR
+ARG PG_CONF_DIR
+ARG PG_BIN_DIR
+
+# Делаем их ENV внутри контейнера
+ENV POSTGRES_VERSION=${POSTGRES_VERSION}
+ENV PG_DATA_DIR=${PG_DATA_DIR}
+ENV PG_CONF_DIR=${PG_CONF_DIR}
+ENV PG_BIN_DIR=${PG_BIN_DIR}
+ENV PATH=${PG_BIN_DIR}:$PATH
  
+# Устанавливаем необходимые локали
+# 1. Установить и сгенерировать локаль ДО PostgreSQL
+RUN apt-get update && apt-get install -y locales \
+ && sed -i 's/# ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/' /etc/locale.gen \
+ && locale-gen ru_RU.UTF-8 \
+ && update-locale LANG=ru_RU.UTF-8
 
 ENV LANG=ru_RU.UTF-8
 ENV LANGUAGE=ru_RU:ru
 ENV LC_ALL=ru_RU.UTF-8
-
-# Установка основных пакетов и зависимостей
-ENV DEBIAN_FRONTEND=noninteractive
- 
    
 # Установка утилит для анализа и создания локали
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,11 +43,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata && \
     apt-get clean
     
-
-# Установка русской локали
-RUN apt-get update && apt-get install -y locales && \
-    sed -i 's/# ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/' /etc/locale.gen && \
-    locale-gen ru_RU.UTF-8 
     
 # Копируем архив с PostgreSQL и другие пакеты
 COPY installer /tmp/installer
@@ -47,11 +54,15 @@ RUN dpkg -i /tmp/installer/postgresql/*.deb || (apt-get update && apt-get instal
 
 RUN rm -rf /var/lib/apt/lists/* /tmp/* 
  
-RUN mkdir -p $CONF_DIR
-COPY postgresql.conf $CONF_DIR/postgresql.conf
-COPY pg_hba.conf $CONF_DIR/pg_hba.conf
-COPY pg_ident.conf $CONF_DIR/pg_ident
 
+#CMD ["tail", "-f", "/dev/null"]
+
+# Копируем entrypoint и конфиги
+
+# Копируем конфиги PostgreSQL
+RUN mkdir -p ${PG_CONF_DIR}
+COPY ./postgresql.conf ${PG_CONF_DIR}/postgresql.conf
+COPY ./pg_hba.conf ${PG_CONF_DIR}/pg_hba.conf
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

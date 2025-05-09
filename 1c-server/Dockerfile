@@ -5,7 +5,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 
 # --- Аргументы сборки ------------------------------------------------
-ARG ONEC_VERSION
 ARG ONEC_USER
 ARG ONEC_GROUP
 ARG LOG_DIR
@@ -15,18 +14,15 @@ ARG CACHE
 ARG LICENSES
 ARG HASP
 ARG PATH_TO_1C
-ARG WS_PUBLIC_DIR
-ARG CLUSTER_PORT_RAGENT
+ARG WS_PUBLIC_DIR  
+ARG ONEC_INSTALLER_NAME 
 ARG APACHE_PUBLICATION_CONF_DIR
-ARG APACHE_PUBLICATION_CONF_FILE
-ARG ONEC_INSTALLER_NAME
 
 # --- Переменные среды ------------------------------------------------
 ENV LANG=ru_RU.UTF-8
 ENV LANGUAGE=ru_RU.UTF-8
 ENV LC_ALL=ru_RU.UTF-8
 ENV PATH_TO_1C=${PATH_TO_1C}
-ENV ONEC_VERSION=${ONEC_VERSION}
 ENV ONEC_USER=${ONEC_USER}
 ENV ONEC_GROUP=${ONEC_GROUP}
 ENV LOG_DIR=${LOG_DIR}
@@ -35,16 +31,12 @@ ENV DATA=${DATA}
 ENV CACHE=${CACHE}
 ENV LICENSES=${LICENSES}
 ENV HASP=${HASP}
-ENV WS_PUBLIC_DIR=${WS_PUBLIC_DIR}
-ENV CLUSTER_PORT_RAGENT=${CLUSTER_PORT_RAGENT}
+ENV WS_PUBLIC_DIR=${WS_PUBLIC_DIR}  
+ENV ONEC_INSTALLER_NAME=${ONEC_INSTALLER_NAME} 
 ENV APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR}
-ENV APACHE_PUBLICATION_CONF_FILE=${APACHE_PUBLICATION_CONF_FILE}
-ENV ONEC_INSTALLER_NAME=${ONEC_INSTALLER_NAME}
  
 
-ENV WS_PUBLIC_DIR=${WS_PUBLIC_DIR}
-ENV CLUSTER_PORT_RAGENT=${CLUSTER_PORT_RAGENT}
-ENV APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR} 
+ENV WS_PUBLIC_DIR=${WS_PUBLIC_DIR}  
 
 # --- Создание пользователя 1С ----------------------------------------
 RUN groupadd -r ${ONEC_GROUP} && useradd -m -r -g ${ONEC_GROUP} -s /bin/bash ${ONEC_USER}
@@ -120,8 +112,8 @@ ENV LC_ALL=ru_RU.UTF-8
 ENV PATH="${PATH_TO_1C}:${PATH}"
 
 # --- Установка платформы 1С ------------------------------------------
-COPY installer/${ONEC_INSTALLER_NAME} /tmp/
-RUN chmod +x /tmp/${ONEC_INSTALLER_NAME} && /tmp/${ONEC_INSTALLER_NAME} \
+COPY installer/*.run /tmp/
+RUN chmod +x /tmp/*.run && /tmp/*.run \
       --mode unattended \
       --enable-components server,server_admin,liberica_jre,v8_install_deps,ws,ru,client_full \
       --disable-components client_thin,client_thin_fib,desktop_icons \
@@ -227,7 +219,6 @@ RUN echo '#!/bin/sh' > /root/.vnc/xstartup && \
 
 # 🌐 Apache: папка для публикации
 RUN mkdir -p ${APACHE_PUBLICATION_CONF_DIR} && \
-     touch ${APACHE_PUBLICATION_CONF_DIR}/${APACHE_PUBLICATION_CONF_FILE} && \
     chown root:root ${APACHE_PUBLICATION_CONF_DIR} && \
     chmod 755 ${APACHE_PUBLICATION_CONF_DIR} 
      

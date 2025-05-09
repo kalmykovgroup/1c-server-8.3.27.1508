@@ -6,7 +6,7 @@ IB_NAME="${1:-$POSTGRES_DB}" # "1c-database"
 # Проверка необходимых переменных окружения 
 : "${DOMAIN:?❌ DOMAIN не задан! Проверь переменные окружения.}" # "1c.kalmykov-group.ru"
 : "${APACHE_PUBLICATION_CONF_DIR:?❌ APACHE_PUBLICATION_CONF_DIR не задан! Проверь переменные окружения.}" #"/etc/apache2/sites-available"
-: "${PATH_TO_1C:?❌ PATH_TO_1C не задан! Проверь переменные окружения.}" #"/opt/1cv8/x86_64/8.3.25.1560"
+: "${PATH_TO_1C:?❌ PATH_TO_1C не задан! Проверь переменные окружения.}" #"/opt/1cv8/x86_64/${VERSION}"
 : "${IB_NAME:?❌ IB_NAME не задан! Проверь переменные окружения.}"
 : "${WS_PUBLIC_DIR:?❌ WS_PUBLIC_DIR не задан! Проверь переменные окружения.}" #"/var/www/ws"
 

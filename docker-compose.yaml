@@ -2,32 +2,36 @@ services:
   pgsql:
     build:
       context: ./pgsql
-      dockerfile: Dockerfile
       args:
-        - CONF_DIR=${PG_CONF_DIR} # Путь к каталогу конфигурации     
+        - POSTGRES_VERSION=${POSTGRES_VERSION}
+        - PG_DATA_DIR=${PG_DATA_DIR}
+        - PG_CONF_DIR=${PG_CONF_DIR}
+        - PG_BIN_DIR=${PG_BIN_DIR}     
+      dockerfile: Dockerfile  
     container_name: pgsql
     restart: unless-stopped
+    secrets:
+      - postgres_password
     environment:
-      POSTGRES_USER: ${POSTGRES_USER} # Пользователь для 1С 
-      POSTGRES_DB: ${POSTGRES_DB}                     # Название БД для 1С
-      POSTGRES_HOST: ${POSTGRES_HOST}  
-      DATA_DIR: ${DATA_DIR}  # Путь к каталогу данных
-      PG_BIN: ${PG_BIN}  # Путь к каталогу данных
-      SOCKET_DIR: ${SOCKET_DIR}  # Путь к socket  
-      LANG: ru_RU.UTF-8
-      LC_ALL: ru_RU.UTF-8 
+      - POSTGRES_VERSION=${POSTGRES_VERSION}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - PG_DATA_DIR=${PG_DATA_DIR}
+      - PG_CONF_DIR=${PG_CONF_DIR} 
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - LANG=${LANG}
+      - LC_ALL=${LC_ALL}
+      - LANGUAGE=${LANGUAGE}
     networks:
       - internal_pgsql
       - public
     volumes:
-      - pg-data-1c:${DATA_DIR}  # 👈 Данные БД  
-      - ./secrets/pass_pgsql:/run/secrets/pass_pgsql:ro
-  
+      - pg-data-1c:${PG_DATA_DIR}  # 👈 Данные БД   
+      - ./pgsql/logs:/var/lib/postgresql/16/main/log
   server:
     build:
       context: ./1c-server
       args:
-        - ONEC_VERSION=${ONEC_VERSION}
         - ONEC_USER=${ONEC_USER}
         - ONEC_GROUP=${ONEC_GROUP}
         - LOG_DIR=${LOG_DIR}
@@ -37,22 +41,23 @@ services:
         - LICENSES=${LICENSES}
         - HASP=${HASP}
         - PATH_TO_1C=${PATH_TO_1C}
-        - WS_PUBLIC_DIR=${WS_PUBLIC_DIR}
-        - CLUSTER_PORT_RAGENT=${CLUSTER_PORT_RAGENT}
-        - APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR} # /etc/apache2/sites-available 
-        - ONEC_INSTALLER_NAME=${ONEC_INSTALLER_NAME} # /etc/apache2/sites-available 
+        - WS_PUBLIC_DIR=${WS_PUBLIC_DIR}   
+        - APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR}   
       dockerfile: Dockerfile 
     container_name: server
     hostname: ${DOMAIN}  # 👈 ОБЯЗАТЕЛЬНО
     depends_on:
       - pgsql
     environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER} 
-      - ONEC_VERSION=${ONEC_VERSION}   
-      - ONEC_PORT_RANGE=${ONEC_PORT_RANGE}   
-      - DOMAIN=${DOMAIN}
-      - ./web-config:${PATH_TO_1C}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER} 
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      VNC_PASSWORD_FILE: /run/secrets/vnc_server_pass
+      ONEC_VERSION: ${ONEC_VERSION}   
+      ONEC_PORT_RANGE: ${ONEC_PORT_RANGE}
+      CLUSTER_PORT_RAGENT: ${CLUSTER_PORT_RAGENT} 
+      DOMAIN: ${DOMAIN}
+     # ./web-config: ${PATH_TO_1C}
       #- HOST_IP=host.docker.internal
     ports: 
       - "1540"  # ragent (тонкие клиенты)
@@ -67,18 +72,21 @@ services:
       - ./1c-server/logs/:${LOG_DIR}/      # Логи 
       - ./1c-server/logs/apache2:${APACHE_LOG}      # Логи apache2
       - ./1c-server/licenses/:${LICENSES}/       
-      - 1c-user-home:/home/usr1cv8/.1cv8/ 
+      - 1c-user-home:/home/${ONEC_USER}/.1cv8/ 
       - ./.env:/env/.env:ro  
       - ./1c-server/web-config/publication:${APACHE_PUBLICATION_CONF_DIR} 
-      - ./1c-server/web-config/vrd:/var/www/ws
-      - ./secrets/pass_pgsql:/run/secrets/pass_pgsql:ro 
+      - ./1c-server/web-config/vrd:/var/www/ws 
+      - ./secrets/pass_pgsql:/run/tmp/pwfile:ro   
     networks:
        internal_pgsql:  # Для связи с PostgreSQL 
        public:    # Для внешнего доступа (nginx, ping, telnet)
          aliases:
            - ${DOMAIN}  # Доменное имя для доступа внутри сети 
     restart: unless-stopped
-    
+    secrets:
+      - postgres_password
+      - vnc_server_pass
+      
   haspd:  # Мэнеджер лицензий HASP
     build:
       context: ./haspd
@@ -93,10 +101,13 @@ services:
       - ./haspd/logs/:/var/log/haspd/
       - hasplm-data:/var/hasplm
       - ./haspd/config/hasplm.ini:/etc/hasplm/hasplm.ini
+    environment:
+      VNC_PASSWORD_FILE: /run/secrets/vnc_haspd_pass   
     networks:
       public:  
     restart: unless-stopped
-    
+    secrets:
+      - vnc_haspd_pass  
   nginx:
     build:
       context: ./nginx 
@@ -132,3 +143,11 @@ volumes:
   1c-data: #1с хранит информацию о кластерах 
   1c-user-home: #Общая папка для кеша и еще чего-то
   hasplm-data: # hasplm - Это служба от Guardant / SafeNet, которая нужна для работы HASP. 1С использует HASP (лицензионный менеджер) 
+  
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  vnc_server_pass:  
+    file: ./secrets/vnc_server_pass.txt
+  vnc_haspd_pass:  
+    file: ./secrets/vnc_haspd_pass.txt
