@@ -1,8 +1,9 @@
 ﻿FROM nginx:latest
+ 
 
 # Установим утилиты для отладки и envsubst (он уже есть в base Alpine образе, но добавим netcat)
 RUN apt update && \
-    apt install -y telnet netcat-openbsd gettext-base && \
+    apt install -y net-tools telnet netcat-openbsd gettext-base && \
     rm -rf /var/lib/apt/lists/*
 
 # Копируем скрипт запуска

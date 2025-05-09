@@ -1,12 +1,99 @@
+
 server {
     listen 80;
-    server_name ${DOMAIN_NAME};
+    server_name ${DOMAIN} ${DOMAIN_VNC_SERVER} ${DOMAIN_VNC_SERVER}; 
+    
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN};
+    charset utf-8;
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
 
     location / {
-        proxy_pass http://${IP_VM_1C}:80;
+        proxy_pass http://${IP_VM_CLIENT_1C};
+        proxy_http_version 1.1;
+
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+
+ 
+
+# HTTPS for server
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN_VNC_SERVER};
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN_VNC_SERVER}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_VNC_SERVER}/privkey.pem;
+
+    location / {
+        proxy_pass http://novnc-server:6080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+
+# HTTPS for haspd
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN_VNC_HASPD};
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN_VNC_HASPD}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_VNC_HASPD}/privkey.pem;
+
+    location / {
+        proxy_pass http://novnc-haspd:6080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+
+server {
+    listen $PROXMOX_PORT ssl;
+    server_name ${DOMAIN};
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+ 
+    
+    location / {
+        proxy_pass https://$PROXMOX_IP:$PROXMOX_PORT;
+        proxy_http_version 1.1;
+    
+        # Отключаем проверку самоподписанного SSL у Proxmox
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
+    
+        # Пробрасываем нужные заголовки
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    
+        # Дополнительно для websocket/интерфейса
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+
+
+ 

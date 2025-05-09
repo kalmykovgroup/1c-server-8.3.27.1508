@@ -24,7 +24,6 @@ services:
       - LANGUAGE=${LANGUAGE}
     networks:
       - internal_pgsql
-      - public
     volumes:
       - pg-data-1c:${PG_DATA_DIR}  # 👈 Данные БД   
       - ./pgsql/logs:/var/lib/postgresql/16/main/log
@@ -64,7 +63,7 @@ services:
       - "1541"  # rmngr/rphost
       - "1545"  # ras (администрирование)
       - "1555"  # ras (мониторинг)  
-      - "5901:5901" #VNC
+      - "5901" #VNC
       - "${ONEC_PORT_RANGE_DOCKER}" # Рабочие процессы (session)  
       - "80" # Apache внутри server теперь отдаёт Web-клиент
     volumes:
@@ -77,8 +76,9 @@ services:
       - ./1c-server/web-config/publication:${APACHE_PUBLICATION_CONF_DIR} 
       - ./1c-server/web-config/vrd:/var/www/ws 
     networks:
+       vnc-net:  # Для VNC
        internal_pgsql:  # Для связи с PostgreSQL 
-       public:    # Для внешнего доступа (nginx, ping, telnet)
+       private:    # Для внешнего доступа (nginx, ping, telnet)
          aliases:
            - ${DOMAIN}  # Доменное имя для доступа внутри сети 
     restart: unless-stopped
@@ -95,7 +95,7 @@ services:
     container_name: haspd
     hostname: ${DOMAIN}
     ports:
-      - "5902:5901" #VNC
+      - "5901" #VNC
     volumes:
       - ./haspd/logs/:/var/log/haspd/
       - hasplm-data:/var/hasplm
@@ -103,33 +103,74 @@ services:
     environment:
       VNC_PASSWORD_FILE: /run/secrets/vnc_haspd_pass   
     networks:
-      public:  
+      vnc-net:  
     restart: unless-stopped
     secrets:
       - vnc_haspd_pass  
+      
+  novnc-server:
+    image: theasp/novnc
+    environment:
+      - VNC_HOST=server
+      - VNC_PORT=5901
+    networks:
+      - vnc-net
+
+  novnc-haspd:
+    image: theasp/novnc
+    environment:
+      - VNC_HOST=haspd
+      - VNC_PORT=5901
+    networks:
+      - vnc-net 
+      
   nginx:
     build:
-      context: ./nginx 
+      context: ./nginx
+      dockerfile: Dockerfile
     container_name: nginx
+    restart: unless-stopped
     ports:
-      - "1540:1540"
-      - "1541:1541"
-      - "1545:1545"
-      - "1555:1555"
+      - "1540:1540" # 1c # ragent (тонкие клиенты) точка входа для тонких клиентов
+      - "1541:1541" # 1c # rmngr/rphost
+      - "1545:1545" # 1c # ras (администрирование)
+      - "1555:1555" # 1c # ras (мониторинг) 
+      - "${ONEC_PORT_RANGE_DOCKER}:${ONEC_PORT_RANGE_DOCKER}" #  1с Рабочие процессы(session) (100шт.)
       - "80:80" # Apache внутри server теперь отдаёт Web-клиент
-      - "${ONEC_PORT_RANGE_DOCKER}:${ONEC_PORT_RANGE_DOCKER}" # Рабочие процессы (session)    
+      - "443:443"
+      - "8006:8006" #proxmox web интерфейс главного сервера 
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/templates:/etc/nginx/templates    
-      - ./nginx/stream.d/:/etc/nginx/stream.d/
-      - ./nginx/conf.d/:/etc/nginx/stream.d/
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf  # основной конфиг
+      - ./nginx/templates/:/etc/nginx/templates/  # шаблоны
+      - ./nginx/conf.d/:/etc/nginx/conf.d/        # конфиги для виртуальных хостов
+      - ./nginx/stream.d/:/etc/nginx/stream.d/    # конфиги для stream
+      - ./nginx/certbot/conf:/etc/letsencrypt   # ← сертификаты    
+      - ./nginx/certbot/www:/var/www/certbot
     environment:
-      - DOMAIN_NAME=${DOMAIN}
-      - IP_VM_1C=${IP_VM_1C}         
-    depends_on: 
-      - server
-    networks: 
-      - public # Для связи с server 
+      - IP_VM_1C=server
+      - DOMAIN=${DOMAIN}
+      - PROXMOX_IP=${PROXMOX_IP}
+      - PROXMOX_PORT=${PROXMOX_PORT}
+      - DOMAIN_VNC_SERVER=${DOMAIN_VNC_SERVER}
+      - DOMAIN_VNC_HASPD=${DOMAIN_VNC_HASPD}
+    networks:
+      - public # Для связи с внешним миром
+      - private # Для связи с server 
+      - vnc-net 
+  certbot:
+    build:
+      context: ./certbot
+      dockerfile: Dockerfile
+    container_name: certbot
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./certbot/cloudflare.ini:/cloudflare.ini:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - CERTBOT_EMAIL=${CERTBOT_EMAIL}
+      - DOMAIN=${DOMAIN}
+      - DOMAIN_VNC_SERVER=${DOMAIN_VNC_SERVER}
+      - DOMAIN_VNC_HASPD=${DOMAIN_VNC_HASPD}
     restart: unless-stopped
     
 networks:
@@ -137,6 +178,10 @@ networks:
     internal: true  # Скрытая сеть (1C <-> PostgreSQL) 
   public:
     driver: bridge  # Обычная сеть для nginx 
+  private:
+    internal: true  
+  vnc-net:
+    driver: bridge  
 volumes:
   pg-data-1c: #postgres хранит базы данных 
   1c-data: #1с хранит информацию о кластерах 

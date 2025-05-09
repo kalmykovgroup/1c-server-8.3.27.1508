@@ -1,0 +1,14 @@
+server {
+    listen 80;
+    server_name ${DOMAIN} ${DOMAIN_VNC_SERVER} ${DOMAIN_VNC_HASPD};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 503 "SSL not available yet.";
+    }
+}
+
+ 

@@ -1,30 +1,25 @@
 proxy_timeout 12h;
 proxy_buffer_size 16k;
 
-# Проксирование основных портов (для сервисов 1С, не web-интерфейса)
-server {  # ragent (тонкие клиенты) точка входа для тонких клиентов
+server {
     listen 1540;
     proxy_pass ${IP_VM_1C}:1540;
 }
 
-server {  # rmngr/rphost
+server {
     listen 1541;
     proxy_pass ${IP_VM_1C}:1541;
 }
 
-server { # ras (администрирование)
+server {
     listen 1545;
     proxy_pass ${IP_VM_1C}:1545;
 }
 
-server { # ras (мониторинг)
+server {
     listen 1555;
     proxy_pass ${IP_VM_1C}:1555;
 }
-
-# Динамический диапазон портов
-# После подключения к ragent, ragent присылает клиенту порт по которому будет созданна сессия для работы с базой
-# Кол-во этих портов должно соответствовать кол-ву доступных одновременно сессия для лицензии. 
 
 server {
     listen 1560;
