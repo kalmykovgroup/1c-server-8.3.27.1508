@@ -91,8 +91,8 @@ RUN mkdir -p \
     chmod -R 775 ${LOG_DIR} /var/log/supervisor
 
 # Копируем стартовый скрипт для VNC
-COPY vncwrapper.sh ${BIN}/vncwrapper.sh
-RUN chmod +x ${BIN}/vncwrapper.sh
+COPY start-vnc.sh ${BIN}/start-vnc.sh
+RUN chmod +x ${BIN}/start-vnc.sh
 
 # Настройка xstartup для VNC
 RUN echo '#!/bin/sh' > /root/.vnc/xstartup && \

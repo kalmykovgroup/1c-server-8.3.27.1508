@@ -1,6 +1,9 @@
 #!/bin/bash
 whoami
 
+echo "🧹 Очищаем логи..."
+find "$LOG_DIR" -type f -name "*.log" -exec truncate -s 0 {} \;
+
 # Используем переменные окружения или значения по умолчанию
 # Проверка переменных окружения
 : "${LOG_DIR:?❌ LOG_DIR не задан! Проверь переменные окружения.}"
@@ -16,6 +19,8 @@ else
   export POSTGRES_PASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
   echo "🔐 Пароль от postgres успешно загружен из секрета"
 fi
+ 
+#-------- vnc ----------------
 
 # Проверка пароля
 if [ ! -s "$VNC_PASSWORD_FILE" ]; then
@@ -26,34 +31,23 @@ else
   echo "🔐 Пароль от vnc успешно загружен из секрета"
 fi
  
-echo "🧹 Очищаем логи..."
-find "$LOG_DIR" -type f -name "*.log" -exec truncate -s 0 {} \;
 
-#-------- vnc ----------------
+echo "🧹 Очищаем логи и временные файлы..."
+find "$LOG_DIR" -type f -name "*.log" -exec truncate -s 0 {} \;
+rm -rf /tmp/.X* /tmp/.X11-unix /root/.vnc/*.pid
 
 echo "🔑 Установка пароля VNC..."
-VNC_HOME="/home/${ONEC_USER}/.vnc"
-mkdir -p "$VNC_HOME"
-chown -R ${ONEC_USER}:${ONEC_GROUP} "$VNC_HOME"
+mkdir -p /root/.vnc
+printf "%s\n%s\n" "$VNC_PASSWORD" "$VNC_PASSWORD" | vncpasswd -f > /root/.vnc/passwd
+chmod 600 /root/.vnc/passwd
 
-# Генерация пароля в файл
-runuser -u ${ONEC_USER} -- bash -c "echo -e \"${VNC_PASSWORD}\n${VNC_PASSWORD}\" | vncpasswd -f > ~/.vnc/passwd"
-chmod 600 "$VNC_HOME/passwd"
-chown ${ONEC_USER}:${ONEC_GROUP} "$VNC_HOME/passwd"
-
-# xstartup
-cat <<EOF > "$VNC_HOME/xstartup"
+cat <<EOF > /root/.vnc/xstartup
 #!/bin/sh
 unset SESSION_MANAGER
-exec openbox-session
+exec /bin/sh /etc/xdg/xfce4/xinitrc
 EOF
+chmod +x /root/.vnc/xstartup
 
-chmod +x "$VNC_HOME/xstartup"
-chown ${ONEC_USER}:${ONEC_GROUP} "$VNC_HOME/xstartup"
-
-# Устраняем предупреждение об отсутствующем .Xauthority
-touch "/home/${ONEC_USER}/.Xauthority"
-chown ${ONEC_USER}:${ONEC_GROUP} "/home/${ONEC_USER}/.Xauthority"
 
 #-------- end vnc ------------
 
