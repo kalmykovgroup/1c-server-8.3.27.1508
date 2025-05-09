@@ -162,11 +162,13 @@ services:
       context: ./certbot
       dockerfile: Dockerfile
     container_name: certbot
+    secrets:
+      - cloudflare
     volumes:
-      - ./nginx/certbot/conf:/etc/letsencrypt
-      - ./certbot/cloudflare.ini:/cloudflare.ini:ro
+      - ./nginx/certbot/conf:/etc/letsencrypt 
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      - CLOUD_FLARE=/run/secrets/cloudflare.ini
       - CERTBOT_EMAIL=${CERTBOT_EMAIL}
       - DOMAIN=${DOMAIN}
       - DOMAIN_VNC_SERVER=${DOMAIN_VNC_SERVER}
@@ -195,3 +197,5 @@ secrets:
     file: ./secrets/vnc_server_pass.txt
   vnc_haspd_pass:  
     file: ./secrets/vnc_haspd_pass.txt
+  cloudflare:  
+    file: ./secrets/cloudflare.ini

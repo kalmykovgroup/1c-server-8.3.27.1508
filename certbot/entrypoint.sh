@@ -5,12 +5,12 @@ set -euo pipefail
 : "${DOMAIN_VNC_SERVER:?❌ DOMAIN_VNC_SERVER не задан!}" 
 : "${DOMAIN_VNC_HASPD:?❌ DOMAIN_VNC_HASPD не задан!}" 
 : "${CERTBOT_EMAIL:?❌ CERTBOT_EMAIL не задан!}" 
+: "${CLOUD_FLARE:?❌ CLOUD_FLARE не задан!}" 
 
 echo "🌐 Certbot entrypoint запущен..." 
 echo "🔹 EMAIL: ${CERTBOT_EMAIL}"
 echo "🔹 DOMAIN: ${DOMAIN}"
 
-CLOUDFLARE_CRED="/cloudflare.ini"
 RENEW_CRON="/etc/cron.d/certbot-renew"
 
 issue_if_missing() {
@@ -29,7 +29,7 @@ issue_if_missing() {
   set +e  # временно отключаем остановку по ошибке
   output=$(certbot certonly \
     --dns-cloudflare \
-    --dns-cloudflare-credentials "$CLOUDFLARE_CRED" \
+    --dns-cloudflare-credentials "$CLOUD_FLARE" \
     --dns-cloudflare-propagation-seconds 30 \
     --cert-name "$cert_name" \
     "${domains[@]/#/-d }" \
@@ -63,7 +63,7 @@ issue_if_missing "${DOMAIN_VNC_HASPD}" "${DOMAIN_VNC_HASPD}"        # 1c.kalmyko
 echo "0 3 * * * root certbot renew \
       --quiet \
       --dns-cloudflare \
-      --dns-cloudflare-credentials $CLOUDFLARE_CRED \
+      --dns-cloudflare-credentials $CLOUD_FLARE \
       --post-hook 'docker exec nginx nginx -s reload'" > "$RENEW_CRON"
 chmod 0644 "$RENEW_CRON"
 echo "🗓  Cron‑задача для продления создана: $RENEW_CRON"
