@@ -7,11 +7,7 @@ RUN apt-get update && \
         certbot python3-pip cron docker.io && \
     pip3 install --no-cache-dir certbot-dns-cloudflare && \
     rm -rf /var/lib/apt/lists/*
-
-# 2. Конфиг Cloudflare API‑токена
-#    (копируется позже как read‑only volume; здесь — на случай CI‑build’а)
-COPY cloudflare.ini /cloudflare.ini
-RUN chmod 600 /cloudflare.ini
+ 
 
 # 3. Entrypoint‑скрипт
 COPY entrypoint.sh /entrypoint.sh
