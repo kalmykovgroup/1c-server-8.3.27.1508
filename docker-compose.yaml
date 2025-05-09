@@ -103,7 +103,7 @@ services:
     environment:
       VNC_PASSWORD_FILE: /run/secrets/vnc_haspd_pass   
     networks:
-      vnc-net:  
+      - vnc-net  
     restart: unless-stopped
     secrets:
       - vnc_haspd_pass
