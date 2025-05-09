@@ -207,17 +207,20 @@ RUN chmod +x \
       ${BIN}/start-ragent.sh \
       ${BIN}/init-cluster.sh \
       ${BIN}/init-server.sh \
-      ${BIN}/init-web.sh \
-      ${BIN}/start-vnc.sh 
+      ${BIN}/init-web.sh 
+      #${BIN}/start-vnc.sh 
     
 # ⚙️ Конфигурация supervisor 
 COPY supervisord.template.conf /etc/supervisord.template.conf 
 
+# Копируем стартовый скрипт для VNC 
+RUN chmod +x ${BIN}/start-vnc.sh
+
 # Настройка xstartup для VNC
 RUN echo '#!/bin/sh' > /root/.vnc/xstartup && \
     echo 'xrdb $HOME/.Xresources' >> /root/.vnc/xstartup && \
-    echo 'openbox-session &' >> /root/.vnc/xstartup && \
-    chmod +x /root/.vnc/xstartup 
+    echo 'startxfce4 &' >> /root/.vnc/xstartup && \
+    chmod +x /root/.vnc/xstartup
 
 # 🌐 Apache: папка для публикации
 RUN mkdir -p ${APACHE_PUBLICATION_CONF_DIR} && \
