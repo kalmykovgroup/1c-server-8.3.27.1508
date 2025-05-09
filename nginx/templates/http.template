@@ -41,7 +41,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_VNC_SERVER}/privkey.pem;
 
     location / {
-        proxy_pass http://novnc-server:6080;
+        proxy_pass http://novnc-server:8080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -57,7 +57,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_VNC_HASPD}/privkey.pem;
 
     location / {
-        proxy_pass http://novnc-haspd:6080;
+        proxy_pass http://novnc-haspd:8080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
