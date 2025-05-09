@@ -13,7 +13,7 @@ mkdir -p "$HOME/.vnc"
 
 # Запускаем VNC
 echo "🚀 Запускаем VNC-сервер..."
-if ! vncserver :1 -geometry 1280x800 -depth 24; then
+if ! vncserver :1 -geometry 1280x800 -depth 24 -localhost no; then
   echo "❌ Ошибка запуска VNC-сервера. Лог:"
   cat "$HOME/.vnc/"*.log
   exit 1

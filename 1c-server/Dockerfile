@@ -43,6 +43,8 @@ RUN groupadd -r ${ONEC_GROUP} && useradd -m -r -g ${ONEC_GROUP} -s /bin/bash ${O
 
 # --- Установка зависимостей для 1С-сервера --------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Для отладки \
+    net-tools \
     # Менеджер процессов supervisor
     supervisor \
     # Клиент PostgreSQL
