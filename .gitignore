@@ -3,8 +3,7 @@
 nginx/logs/
 nginx/certbot/
 haspd/data
-haspd/logs 
-pgsql/installer/postgesql/  
+haspd/logs  
 .idea
 secrets/
 pgsql/logs
