@@ -106,23 +106,23 @@ services:
       vnc-net:  
     restart: unless-stopped
     secrets:
-      - vnc_haspd_pass  
+      - vnc_haspd_pass
       
   novnc-server:
-    image: theasp/novnc
+    build:
+      context: ./novnc-proxy
     container_name: novnc-server
     environment:
-      - VNC_HOST=server
-      - VNC_PORT=5901
+      - VNC_TARGET=server:5901
     networks:
       - vnc-net
 
   novnc-haspd:
-    image: theasp/novnc
-    container_name: novnc-haspd
+    build:
+      context: ./novnc-proxy
+    container_name: novnc-haspd  
     environment:
-      - VNC_HOST=haspd
-      - VNC_PORT=5901
+      - VNC_TARGET=haspd:5901
     networks:
       - vnc-net 
       
@@ -159,6 +159,10 @@ services:
       - public # Для связи с внешним миром
       - private # Для связи с server 
       - vnc-net 
+    depends_on:
+      - novnc-server
+      - novnc-haspd
+      
   certbot:
     build:
       context: ./certbot

@@ -33,12 +33,20 @@ STREAM_DIR="/etc/nginx/stream.d"
 
 TEMPLATES="/etc/nginx/templates"
 
-TEMPLATE_HTTP="$TEMPLATES/default.http.template"
-TEMPLATE_HTTPS="$TEMPLATES/http.template"
-TEMPLATE_STREAM="$TEMPLATES/stream.template"
+TEMPLATE_HTTP="$TEMPLATES/default.http.template.conf"
+TEMPLATE_HTTPS="$TEMPLATES/http.template.conf"
+TEMPLATE_STREAM="$TEMPLATES/stream.template.conf"
 
-TARGET_CONF="$CONF_DIR/default.conf"
-TARGET_STREAM_CONF="$STREAM_DIR/stream.conf"
+TEMPLATE_PROXMOX="$TEMPLATES/proxmox.template.conf"
+TEMPLATE_VNC_HASPD="$TEMPLATES/vnc-haspd.template.conf"
+TEMPLATE_VNC_SERVER="$TEMPLATES/vnc-server.template.conf"
+
+HTTP_CONF="$CONF_DIR/default.conf"
+STREAM_CONF="$STREAM_DIR/stream.conf"
+
+PROXMOX_CONF="$STREAM_DIR/proxmox.conf"
+VNC_HASPD_CONF="$STREAM_DIR/vnc-haspd.conf"
+VNC_SERVER_CONF="$STREAM_DIR/vnc-server.conf"
  
 echo "PROXMOX_IP:  $PROXMOX_IP"
 echo "PROXMOX_PORT:  $PROXMOX_PORT" 
@@ -53,11 +61,15 @@ echo "🌐 NGINX entrypoint запущен..."
 if [ -f "$CERT_PATH" ]; then
 
   echo "🔒 SSL-сертификат найден, генерируем конфиг с HTTPS..."
-  envsubst '${PROXMOX_IP} ${PROXMOX_PORT} ${IP_VM_1C} ${DOMAIN} ${DOMAIN_VNC_SERVER} ${DOMAIN_VNC_HASPD}' < "$TEMPLATE_HTTPS" > "$TARGET_CONF"
-  envsubst '${IP_VM_1C} ${DOMAIN_VNC_SERVER} ${DOMAIN_VNC_HASPD}' < "$TEMPLATE_STREAM" > "$TARGET_STREAM_CONF"
+  envsubst '${IP_VM_1C} ${DOMAIN}' < "$TEMPLATE_HTTPS" > "$HTTP_CONF"
+  envsubst '${IP_VM_1C}' < "$TEMPLATE_STREAM" > "$STREAM_CONF"
+  
+  envsubst '${PROXMOX_IP} ${PROXMOX_PORT}' < "$TEMPLATE_PROXMOX" > "$PROXMOX_CONF"
+  envsubst '${DOMAIN_VNC_HASPD}' < "$TEMPLATE_VNC_HASPD" > "$VNC_HASPD_CONF"
+  envsubst '${DOMAIN_VNC_SERVER}' < "$TEMPLATE_VNC_SERVER" > "$VNC_SERVER_CONF"
 else
   echo "🌐 SSL ещё нет, запускаемся с HTTP-only..."
-  envsubst '${DOMAIN} ${DOMAIN_VNC_SERVER} ${DOMAIN_VNC_HASPD}' < "$TEMPLATE_HTTP" > "$TARGET_CONF"
+  envsubst '${DOMAIN} ${DOMAIN_VNC_SERVER} ${DOMAIN_VNC_HASPD}' < "$TEMPLATE_HTTP" > "$HTTP_CONF"
 fi
 
 echo "📁 Список /etc/nginx/conf.d после генерации:"
