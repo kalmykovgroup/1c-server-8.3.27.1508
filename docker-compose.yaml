@@ -110,6 +110,7 @@ services:
       
   novnc-server:
     image: theasp/novnc
+    container_name: novnc-server
     environment:
       - VNC_HOST=server
       - VNC_PORT=5901
@@ -118,6 +119,7 @@ services:
 
   novnc-haspd:
     image: theasp/novnc
+    container_name: novnc-haspd
     environment:
       - VNC_HOST=haspd
       - VNC_PORT=5901
