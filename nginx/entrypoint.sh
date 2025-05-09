@@ -44,9 +44,9 @@ TEMPLATE_VNC_SERVER="$TEMPLATES/vnc-server.template.conf"
 HTTP_CONF="$CONF_DIR/default.conf"
 STREAM_CONF="$STREAM_DIR/stream.conf"
 
-PROXMOX_CONF="$STREAM_DIR/proxmox.conf"
-VNC_HASPD_CONF="$STREAM_DIR/vnc-haspd.conf"
-VNC_SERVER_CONF="$STREAM_DIR/vnc-server.conf"
+PROXMOX_CONF="$CONF_DIR/proxmox.conf"
+VNC_HASPD_CONF="$CONF_DIR/vnc-haspd.conf"
+VNC_SERVER_CONF="$CONF_DIR/vnc-server.conf"
  
 echo "PROXMOX_IP:  $PROXMOX_IP"
 echo "PROXMOX_PORT:  $PROXMOX_PORT" 
@@ -64,7 +64,7 @@ if [ -f "$CERT_PATH" ]; then
   envsubst '${IP_VM_1C} ${DOMAIN}' < "$TEMPLATE_HTTPS" > "$HTTP_CONF"
   envsubst '${IP_VM_1C}' < "$TEMPLATE_STREAM" > "$STREAM_CONF"
   
-  envsubst '${PROXMOX_IP} ${PROXMOX_PORT}' < "$TEMPLATE_PROXMOX" > "$PROXMOX_CONF"
+  envsubst '${PROXMOX_IP} ${PROXMOX_PORT} ${DOMAIN}' < "$TEMPLATE_PROXMOX" > "$PROXMOX_CONF"
   envsubst '${DOMAIN_VNC_HASPD}' < "$TEMPLATE_VNC_HASPD" > "$VNC_HASPD_CONF"
   envsubst '${DOMAIN_VNC_SERVER}' < "$TEMPLATE_VNC_SERVER" > "$VNC_SERVER_CONF"
 else
