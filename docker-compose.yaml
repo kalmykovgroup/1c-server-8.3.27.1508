@@ -76,7 +76,6 @@ services:
       - ./.env:/env/.env:ro  
       - ./1c-server/web-config/publication:${APACHE_PUBLICATION_CONF_DIR} 
       - ./1c-server/web-config/vrd:/var/www/ws 
-      - ./secrets/pass_pgsql:/run/tmp/pwfile:ro   
     networks:
        internal_pgsql:  # Для связи с PostgreSQL 
        public:    # Для внешнего доступа (nginx, ping, telnet)
