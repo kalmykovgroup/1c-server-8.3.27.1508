@@ -35,7 +35,7 @@ services:
         - ONEC_GROUP=${ONEC_GROUP}
         - LOG_DIR=${LOG_DIR}
         - BIN=${BIN}
-        - DATA=${DATA}
+        - DATA=${ONEC_DATA}
         - CACHE=${CACHE}
         - LICENSES=${LICENSES}
         - HASP=${HASP}
@@ -67,11 +67,11 @@ services:
       - "${ONEC_PORT_RANGE_DOCKER}" # Рабочие процессы (session)  
       - "80" # Apache внутри server теперь отдаёт Web-клиент
     volumes:
-      - 1c-data:/var/lib/1c-server      # Основные данные кластера 
+      - 1c-data:${ONEC_DATA}      # Основные данные кластера 
       - ./1c-server/logs/:${LOG_DIR}/      # Логи 
       - ./1c-server/logs/apache2:${APACHE_LOG}      # Логи apache2
       - ./1c-server/licenses/:${LICENSES}/       
-      - 1c-user-home:/home/${ONEC_USER}/.1cv8/ 
+      - 1c-user-home:${ONEC_DATA_COMMON} 
       - ./.env:/env/.env:ro  
       - ./1c-server/web-config/publication:${APACHE_PUBLICATION_CONF_DIR} 
       - ./1c-server/web-config/vrd:/var/www/ws 
@@ -90,15 +90,15 @@ services:
     build:
       context: ./haspd
       args:
-        - LOG_DIR=/var/log/haspd/
+        - LOG_DIR=${LOG_DIR}
         - BIN=${BIN}
     container_name: haspd
     hostname: ${DOMAIN}
     ports:
       - "5901" #VNC
     volumes:
-      - ./haspd/logs/:/var/log/haspd/
-      - hasplm-data:/var/hasplm
+      - ./haspd/logs/:${LOG_DIR}
+      - hasplm-data:${HASPD_DATA}
       - ./haspd/config/hasplm.ini:/etc/hasplm/hasplm.ini
     environment:
       VNC_PASSWORD_FILE: /run/secrets/vnc_haspd_pass   
@@ -180,7 +180,36 @@ services:
       - DOMAIN_VNC_SERVER=${DOMAIN_VNC_SERVER}
       - DOMAIN_VNC_HASPD=${DOMAIN_VNC_HASPD}
     restart: unless-stopped
-    
+  
+  backup:
+    build: ./backup
+    container_name: backup
+    volumes:
+      - ./backups:/backup               # 📁 Локальное хранилище
+      - 1c-data:${ONEC_DATA}:ro    # 📂  /var/lib/1c-server
+      - pg-data-1c:${PG_DATA_DIR}:ro  # 🧠 /var/lib/postgresql/16/main
+      - 1c-user-home:${ONEC_DATA_COMMON}:ro  # 🔐 /home/usr1cv8/.1cv8/ 
+      - hasplm-data:${HASPD_DATA}:ro  # 🔐 /var/hasplm
+      - onec_licenses:${LICENSES}:ro  # 🔐 /var/1C/licenses
+      - ./backup/templates/:/etc/templates/ 
+    environment:
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      RCLONE_CONFIG_FILE: /run/secrets/rclone_config
+      ONEC_DATA: ${ONEC_DATA}
+      PG_DATA_DIR: ${PG_DATA_DIR}
+      ONEC_DATA_COMMON: ${ONEC_DATA_COMMON}
+      HASPD_DATA: ${HASPD_DATA}
+      LICENSES: ${LICENSES}
+      TEMPLATES: /etc/templates
+    depends_on:
+      - pgsql
+      - server 
+    secrets:
+      - postgres_password
+      - rclone_config
+      
 networks:
   internal_pgsql:
     internal: true  # Скрытая сеть (1C <-> PostgreSQL) 
@@ -205,3 +234,5 @@ secrets:
     file: ./secrets/vnc_haspd_pass.txt
   cloudflare:  
     file: ./secrets/cloudflare.ini
+  rclone_config:  
+    file: ./secrets/rclone.conf

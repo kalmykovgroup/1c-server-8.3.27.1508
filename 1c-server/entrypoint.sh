@@ -1,8 +1,9 @@
 #!/bin/bash
 whoami
-
-echo "🧹 Очищаем логи..."
+ 
+echo "🧹 Очищаем логи и временные файлы..."
 find "$LOG_DIR" -type f -name "*.log" -exec truncate -s 0 {} \;
+rm -rf /tmp/.X* /tmp/.X11-unix /root/.vnc/*.pid
 
 # Используем переменные окружения или значения по умолчанию
 # Проверка переменных окружения
@@ -19,35 +20,33 @@ else
   export POSTGRES_PASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
   echo "🔐 Пароль от postgres успешно загружен из секрета"
 fi
- 
+
+echo "🔧 Устанавливаем права на /var/1C/licenses..."
+chown -R ${ONEC_USER}:${ONEC_GROUP} /var/1C/licenses
+chmod -R 755 /var/1C/licenses
+
 #-------- vnc ----------------
 
-# Проверка пароля
+# Проверка и загрузка VNC-пароля
 if [ ! -s "$VNC_PASSWORD_FILE" ]; then
-  echo "❌ Файл VNC_PASSWORD_FILE с паролем пуст или не существует — проверь маунт секрета" >&2
+  echo "❌ Файл VNC_PASSWORD_FILE пуст или не существует — проверь маунт секрета" >&2
   exit 1
 else
   export VNC_PASSWORD=$(cat "$VNC_PASSWORD_FILE")
-  echo "🔐 Пароль от vnc успешно загружен из секрета"
+  echo "🔐 Пароль от VNC успешно загружен из секрета"
 fi
- 
 
-echo "🧹 Очищаем логи и временные файлы..."
-find "$LOG_DIR" -type f -name "*.log" -exec truncate -s 0 {} \;
-rm -rf /tmp/.X* /tmp/.X11-unix /root/.vnc/*.pid
 
-echo "🔑 Установка пароля VNC..."
-mkdir -p /root/.vnc
-printf "%s\n%s\n" "$VNC_PASSWORD" "$VNC_PASSWORD" | vncpasswd -f > /root/.vnc/passwd
-chmod 600 /root/.vnc/passwd
-
+# Создание файла xstartup
+echo "⚙️ Настройка xstartup..."
 cat <<EOF > /root/.vnc/xstartup
 #!/bin/sh
+export DISPLAY=:1
 unset SESSION_MANAGER
-exec /bin/sh /etc/xdg/xfce4/xinitrc
+unset DBUS_SESSION_BUS_ADDRESS
+exec startxfce4
 EOF
 chmod +x /root/.vnc/xstartup
-
 
 #-------- end vnc ------------
 

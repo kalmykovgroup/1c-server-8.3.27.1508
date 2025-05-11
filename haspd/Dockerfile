@@ -1,8 +1,8 @@
 ﻿FROM ubuntu:24.04
 
 # Аргументы для путей логов и бинарных файлов
-ARG LOG_DIR=/var/log
-ARG BIN=/usr/local/bin
+ARG LOG_DIR
+ARG BIN
 
 # Установка переменных окружения
 ENV LOG_DIR=${LOG_DIR}
@@ -16,7 +16,9 @@ RUN apt-get update && \
         ca-certificates \
         software-properties-common && \
     echo "deb [arch=amd64,i386] http://security.ubuntu.com/ubuntu focal-security main" > /etc/apt/sources.list.d/focal-i386.list && \
-    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3B4FE6ACC0B21F32
+    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3B4FE6ACC0B21F32 
+
+
 
 # Установка 32-битных зависимостей и GUI
 RUN dpkg --add-architecture i386 && \
@@ -31,18 +33,15 @@ RUN dpkg --add-architecture i386 && \
         libssl1.1:i386 \
         libusb-0.1-4:i386 \
         # Графическая среда
-        tightvncserver \
-        xserver-xorg-core \
-        xorgxrdp \
-        xauth \
-        x11-xkb-utils \
-        x11-utils \
-        x11-apps \
-        xdg-utils \
+        tigervnc-standalone-server \
+        tigervnc-common \
+        tigervnc-tools \
         xfce4 \
         xfce4-goodies \
-        xfonts-base \
         dbus-x11 \
+        xfonts-base \
+        xauth \
+        xdg-utils \
         # Системные утилиты
         locales \
         supervisor \
@@ -93,13 +92,7 @@ RUN mkdir -p \
 # Копируем стартовый скрипт для VNC
 COPY start-vnc.sh ${BIN}/start-vnc.sh
 RUN chmod +x ${BIN}/start-vnc.sh
-
-# Настройка xstartup для VNC
-RUN echo '#!/bin/sh' > /root/.vnc/xstartup && \
-    echo 'xrdb $HOME/.Xresources' >> /root/.vnc/xstartup && \
-    echo 'startxfce4 &' >> /root/.vnc/xstartup && \
-    chmod +x /root/.vnc/xstartup
-
+ 
 # Конфигурация supervisord
 COPY supervisord.template.conf /etc/supervisord.template.conf
 
@@ -107,8 +100,6 @@ COPY supervisord.template.conf /etc/supervisord.template.conf
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Открываем порты для VNC, Sentinel и других сервисов
-EXPOSE 5901 1947 8080
-
+ 
 # Запуск entrypoint
 CMD ["/usr/local/bin/entrypoint.sh"]

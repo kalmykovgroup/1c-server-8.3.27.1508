@@ -1,0 +1,1 @@
+{{BACKUP_SCHEDULE}} root /backup.sh >> /var/log/1c_backup.log 2>&1
