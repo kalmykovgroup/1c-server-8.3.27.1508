@@ -23,7 +23,7 @@ RAC_BIN="${PATH_TO_1C}/rac"
 
 # 📋 Аргументы и ENV
 IB_NAME="${1:-$POSTGRES_DB}"
-DB_HOST="${POSTGRES_HOST:-pgsql}"
+DB_HOST="${POSTGRES_HOST}"
 
 # 🔐 Обязательные переменные
 : "${POSTGRES_USER:?❌ Не указано имя пользователя Postgres}"

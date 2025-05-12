@@ -49,7 +49,8 @@ services:
       - pgsql
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER} 
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_HOST: ${POSTGRES_HOST} 
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       VNC_PASSWORD_FILE: /run/secrets/vnc_server_pass
       ONEC_VERSION: ${ONEC_VERSION}   
@@ -189,12 +190,16 @@ services:
       - 1c-data:${ONEC_DATA}:ro    # 📂  /var/lib/1c-server
       - pg-data-1c:${PG_DATA_DIR}:ro  # 🧠 /var/lib/postgresql/16/main
       - 1c-user-home:${ONEC_DATA_COMMON}:ro  # 🔐 /home/usr1cv8/.1cv8/ 
-      - hasplm-data:${HASPD_DATA}:ro  # 🔐 /var/hasplm
-      - onec_licenses:${LICENSES}:ro  # 🔐 /var/1C/licenses
-      - ./backup/templates/:/etc/templates/ 
+      - hasplm-data:${HASPD_DATA}:ro  # 🔐 /var/hasplm 
+      - ./1c-server/licenses/:${LICENSES}:ro
+      - ./backup/templates/:/etc/templates/
+      - /var/run/docker.sock:/var/run/docker.sock
+      
     environment:
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE}
+      BACKUP_CLOUD_DIR: ${BACKUP_CLOUD_DIR}
       POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       RCLONE_CONFIG_FILE: /run/secrets/rclone_config
       ONEC_DATA: ${ONEC_DATA}
@@ -209,6 +214,9 @@ services:
     secrets:
       - postgres_password
       - rclone_config
+    networks:
+      - internal_pgsql   
+      - public   
       
 networks:
   internal_pgsql:

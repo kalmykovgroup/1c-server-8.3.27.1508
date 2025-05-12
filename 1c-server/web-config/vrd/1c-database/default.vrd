@@ -3,7 +3,7 @@
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                 base="/1c-database"
-                ib="Srvr=client.1c.kalmykov.group;Ref=1c-database">
+                ib="Srvr=volnaya28.1c.kalmykov.group;Ref=1c-database">
         <ws pointEnableCommon="true"/>
         <standardOdata enable="false"
                         reuseSessions="autouse"

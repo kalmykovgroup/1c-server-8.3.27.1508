@@ -45,6 +45,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && locale-gen ru_RU.UTF-8 \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+#
+RUN apt-get update && apt-get install -y --no-install-recommends iputils-ping curl
+
 # --- VNC и GUI ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # 🖥️ Сам VNC-сервер (основной процесс Xvnc)
@@ -85,16 +88,24 @@ RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula sele
     apt-get update && \
     apt-get install -y --no-install-recommends ttf-mscorefonts-installer && \
     fc-cache -f -v && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get clean && rm -rf /var/lib/apt/lists/* 
 
-# --- Установка 1С платформы ---
-COPY installer/*.run /tmp/
-RUN chmod +x /tmp/*.run && /tmp/*.run \
+#Не достающие пакеты для client_full (Для тонкого клиента)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    policykit-1 zenity x11-utils evince libglu1-mesa \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# --- Установка 1С платформы --- 
+COPY installer/ /tmp/installer/
+RUN chmod +x /tmp/installer/*.run && chmod +x /tmp/installer/installAsRoot && \
+    /tmp/installer/installAsRoot \
       --mode unattended \
-      --enable-components server,server_admin,liberica_jre,v8_install_deps,ws,ru,client_full \
-      --disable-components client_thin,client_thin_fib,desktop_icons \
-      --debugtrace /tmp/install.log && \
-    rm -f /tmp/*
+      --enable-components server,server_admin,liberica_jre,v8_install_deps,ws,ru,client_full,desktop_icons \
+      --disable-components client_thin,client_thin_fib\
+      --debugtrace /tmp/install.log  && \
+    rm -rf /tmp/installer
+
+
 
 
 # server                      -  Сервер 1С. Без него сервер не будет работать.
@@ -125,8 +136,8 @@ RUN mkdir -p \
       /home/${ONEC_USER} /var/log/supervisor && \
     chmod -R 775 ${LOG_DIR} ${DATA} ${CACHE} ${LICENSES} ${HASP} ${WS_PUBLIC_DIR}
 
-# --- Скрипты и конфиги ---
-COPY init-ib.sh start-ragent.sh init-cluster.sh init-server.sh init-web.sh start-vnc.sh ${BIN}/
+# --- Скрипты и конфиги --- 
+COPY init-ib.sh start-ragent.sh init-cluster.sh init-server.sh start-ras.sh init-web.sh start-vnc.sh ${BIN}/
 RUN chmod +x ${BIN}/*.sh && \
     chown ${ONEC_USER}:${ONEC_GROUP} ${BIN}/*.sh
 
