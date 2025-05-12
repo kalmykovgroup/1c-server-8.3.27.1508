@@ -1,9 +1,11 @@
-1c-server/installer/
+haspd/logs 
 1c-server/logs/
 nginx/logs/
+pgsql/logs
+
+1c-server/web-config/
 nginx/certbot/
 haspd/data
-haspd/logs  
 .idea
 secrets/
-pgsql/logs
+
