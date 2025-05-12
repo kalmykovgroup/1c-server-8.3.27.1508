@@ -1,0 +1,8 @@
+# Отслеживаем все файлы в 1C-сервере
+1c-server/installer/** filter=lfs diff=lfs merge=lfs -text
+# Отслеживаем все файлы в PostgreSQL установщике
+pgsql/installer/** filter=lfs diff=lfs merge=lfs -text
+# Отслеживаем все файлы в backup installer (например, rclone)
+backup/installer/** filter=lfs diff=lfs merge=lfs -text
+# Отслеживаем все файлы в haspd 
+haspd/installer/** filter=lfs diff=lfs merge=lfs -text
