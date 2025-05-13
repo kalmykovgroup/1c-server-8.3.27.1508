@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
-whoami
+
+# Уведомление при ошибке
+: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
+SCRIPT_NAME="init-ib.sh (1c-server)"
+source ${NOTIFY_SH}
+trap 'handle_exit' EXIT
+
 # Проверка доступности psql
 for i in {1..60}; do
     if command -v psql >/dev/null; then
@@ -12,8 +18,9 @@ for i in {1..60}; do
     fi
 done
 
-if ! command -v psql >/dev/null; then
-    echo "❌ psql не найден даже после ожидания" >&2
+if ! command -v psql >/dev/null; then 
+    LAST_ERROR_MESSAGE="❌ psql не найден даже после ожидания"
+    echo "$LAST_ERROR_MESSAGE" >&2
     exit 1
 fi
 
@@ -50,7 +57,11 @@ for i in {1..60}; do
     sleep 1
 done
 
-[ -z "$CLUSTER_ID" ] && { echo "❌ Кластер не найден" >&2; exit 1; }
+[ -z "$CLUSTER_ID" ] && {
+      LAST_ERROR_MESSAGE="❌ Кластер не найден"
+      echo "$LAST_ERROR_MESSAGE" >&2
+      exit 1 
+  }
 echo "✅ Кластер найден: $CLUSTER_ID"
  
 # Проверка публикации через rac 
@@ -87,8 +98,9 @@ echo "✅ Проверяем физическое наличие ИБ '$IB_NAME'
 if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$DB_HOST" -U "$POSTGRES_USER" -d postgres -tAc \
   "SELECT 1 FROM pg_database WHERE datname = '$IB_NAME'" | grep -q 1; then
     echo "✅ Физическая база '$IB_NAME' найдена в PostgreSQL."
-else
-    echo "❌ База '$IB_NAME' НЕ была создана в PostgreSQL!" >&2
+else 
+    LAST_ERROR_MESSAGE="❌ База '$IB_NAME' НЕ была создана в PostgreSQL!"
+    echo "$LAST_ERROR_MESSAGE" >&2
     exit 1
 fi
 
@@ -99,7 +111,11 @@ get_ib_uuid() {
 }
 
 IB_UUID=$(get_ib_uuid)
-[ -z "$IB_UUID" ] && { echo "❌ Не удалось получить UUID для '$IB_NAME'" >&2; exit 1; }
+[ -z "$IB_UUID" ] && {  
+  LAST_ERROR_MESSAGE="❌ Не удалось получить UUID для '$IB_NAME'"
+  echo "$LAST_ERROR_MESSAGE" >&2
+  exit 1
+}
 
 # 📢 Публикация ИБ
 echo "📢 Публикация ИБ '$IB_NAME'..."

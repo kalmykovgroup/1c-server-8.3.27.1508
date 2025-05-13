@@ -8,7 +8,6 @@ RUN apt-get update && \
     pip3 install --no-cache-dir certbot-dns-cloudflare && \
     rm -rf /var/lib/apt/lists/*
  
-
 # 3. Entrypoint‑скрипт
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

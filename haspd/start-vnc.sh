@@ -3,9 +3,15 @@ set -e
 
 export USER=root
 
+: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
+SCRIPT_NAME="start-vnc.sh (haspd)"
+source ${NOTIFY_SH}
+trap 'handle_exit' EXIT
+
 # Проверка переменной с паролем
-if [ -z "$VNC_PASSWORD" ]; then
-  echo "❌ Переменная VNC_PASSWORD не установлена!" >&2
+if [ -z "$VNC_PASSWORD" ]; then 
+  LAST_ERROR_MESSAGE="❌ Переменная VNC_PASSWORD не установлена!"
+  echo "$LAST_ERROR_MESSAGE" >&2
   exit 1
 fi
 

@@ -1,5 +1,11 @@
 #!/bin/bash
-whoami
+set -e
+
+# Уведомление при ошибке
+: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
+SCRIPT_NAME="entrypoint.sh (1c-server)"
+source ${NOTIFY_SH}
+trap 'handle_exit' EXIT
  
 echo "🧹 Очищаем логи и временные файлы..."
 find "$LOG_DIR" -type f -name "*.log" -exec truncate -s 0 {} \;
@@ -13,8 +19,9 @@ rm -rf /tmp/.X* /tmp/.X11-unix /root/.vnc/*.pid
 : "${PATH_TO_1C:?❌ PATH_TO_1C не задан! Проверь переменные окружения.}"
 
 # Проверка пароля
-if [ ! -s "$POSTGRES_PASSWORD_FILE" ]; then
-  echo "❌ Файл POSTGRES_PASSWORD_FILE с паролем пуст или не существует — проверь маунт секрета" >&2
+if [ ! -s "$POSTGRES_PASSWORD_FILE" ]; then 
+  LAST_ERROR_MESSAGE="❌ Файл POSTGRES_PASSWORD_FILE с паролем пуст или не существует — проверь маунт секрета"
+  echo "$LAST_ERROR_MESSAGE" >&2
   exit 1
 else
   export POSTGRES_PASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
@@ -28,8 +35,9 @@ chmod -R 755 /var/1C/licenses
 #-------- vnc ----------------
 
 # Проверка и загрузка VNC-пароля
-if [ ! -s "$VNC_PASSWORD_FILE" ]; then
-  echo "❌ Файл VNC_PASSWORD_FILE пуст или не существует — проверь маунт секрета" >&2
+if [ ! -s "$VNC_PASSWORD_FILE" ]; then 
+  LAST_ERROR_MESSAGE="❌ Файл VNC_PASSWORD_FILE пуст или не существует — проверь маунт секрета"
+  echo "$LAST_ERROR_MESSAGE" >&2
   exit 1
 else
   export VNC_PASSWORD=$(cat "$VNC_PASSWORD_FILE")

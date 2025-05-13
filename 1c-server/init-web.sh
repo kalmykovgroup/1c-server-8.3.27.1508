@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Уведомление при ошибке
+: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
+SCRIPT_NAME="init-server.sh (1c-server)"
+source ${NOTIFY_SH}
+trap 'handle_exit' EXIT
+
 IB_NAME="${1:-$POSTGRES_DB}" # "1c-database"
 
 # Проверка необходимых переменных окружения 
@@ -42,8 +48,9 @@ done
 
 # ❗ Если init-ib не завершился — ошибка
 STATUS=$(supervisorctl status init-ib | awk '{print $2}')
-if [[ "$STATUS" != "EXITED" ]]; then
-  echo "❌ init-ib не завершился за отведённое время (статус: $STATUS)" >&2
+if [[ "$STATUS" != "EXITED" ]]; then 
+  LAST_ERROR_MESSAGE="❌ init-ib не завершился за отведённое время (статус: $STATUS)"
+  echo "$LAST_ERROR_MESSAGE" >&2
   exit 1
 fi
 

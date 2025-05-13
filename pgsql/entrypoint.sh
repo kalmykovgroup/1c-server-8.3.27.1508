@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Уведомление при ошибке
+: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
+SCRIPT_NAME="entrypoint.sh (pgsql)"
+source ${NOTIFY_SH}
+trap 'handle_exit' EXIT
+
 echo "DEBUG: Запуск entrypoint.sh"
 
 export LANG=ru_RU.UTF-8
@@ -15,19 +21,19 @@ if [ -z "$PG_CONF_DIR" ]; then echo "❌ Не указано PG_CONF_DIR" >&2; e
  
 
 # Проверка пароля
-if [ ! -s "$POSTGRES_PASSWORD_FILE" ]; then
-  echo "❌ Файл с паролем пуст или не существует — проверь маунт секрета" >&2
+if [ ! -s "$POSTGRES_PASSWORD_FILE" ]; then 
+  LAST_ERROR_MESSAGE="❌ Файл с паролем пуст или не существует — проверь маунт секрета"
+  echo "$LAST_ERROR_MESSAGE" >&2
   exit 1
 else
   POSTGRES_PASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
   echo "🔐 Пароль успешно загружен из секрета"
 fi
  
- 
-
 # Проверка наличия конфигов
-if [ ! -f "$PG_CONF_DIR/postgresql.conf" ] || [ ! -f "$PG_CONF_DIR/pg_hba.conf" ]; then
-  echo "❌ Конфигурационные файлы PostgreSQL не найдены!"
+if [ ! -f "$PG_CONF_DIR/postgresql.conf" ] || [ ! -f "$PG_CONF_DIR/pg_hba.conf" ]; then 
+  LAST_ERROR_MESSAGE="❌ Конфигурационные файлы PostgreSQL не найдены!"
+  echo "$LAST_ERROR_MESSAGE" >&2
   exit 1
 fi
 

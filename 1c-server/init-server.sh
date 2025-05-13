@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
-whoami
+
+# Уведомление при ошибке
+: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
+SCRIPT_NAME="init-server.sh (1c-server)"
+source ${NOTIFY_SH}
+trap 'handle_exit' EXIT
+
+
 # Проверка необходимых переменных окружения
 : "${ONEC_VERSION:?❌ ONEC_VERSION не задан! Проверь переменные окружения.}"
 : "${DOMAIN:?❌ DOMAIN не задан! Проверь переменные окружения.}"
@@ -24,8 +31,9 @@ done
 
 echo "🔍 Получаем ID кластера..."
 CLUSTER_ID=$("$RAC_BIN" 127.0.0.1 "$RAS_PORT" cluster list | awk '/cluster/{print $3}')
-if [ -z "$CLUSTER_ID" ]; then
-    echo "❌ Кластер не найден!" >&2
+if [ -z "$CLUSTER_ID" ]; then 
+    LAST_ERROR_MESSAGE="❌ Кластер не найден"
+    echo "$LAST_ERROR_MESSAGE" >&2
     exit 1
 fi
 

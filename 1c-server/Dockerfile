@@ -106,8 +106,6 @@ RUN chmod +x /tmp/installer/*.run && chmod +x /tmp/installer/installAsRoot && \
     rm -rf /tmp/installer
 
 
-
-
 # server                      -  Сервер 1С. Без него сервер не будет работать.
 # server_admin                -  Администрирование лицензий (веб-интерфейс на порту 1541).  
 # liberica_jre                -  Java Runtime Environment (требуется для работы server_admin).
@@ -139,8 +137,9 @@ RUN mkdir -p \
 # --- Скрипты и конфиги --- 
 COPY init-ib.sh start-ragent.sh init-cluster.sh init-server.sh start-ras.sh init-web.sh start-vnc.sh ${BIN}/
 RUN chmod +x ${BIN}/*.sh && \
-    chown ${ONEC_USER}:${ONEC_GROUP} ${BIN}/*.sh
-
+    chown ${ONEC_USER}:${ONEC_GROUP} ${BIN}/*.sh 
+ 
+    
 COPY supervisord.template.conf /etc/supervisord.template.conf
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

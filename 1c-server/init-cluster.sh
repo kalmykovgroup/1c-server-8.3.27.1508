@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 
-whoami
+# Уведомление при ошибке
+: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
+SCRIPT_NAME="init-cluster.sh (1c-server)"
+source ${NOTIFY_SH}
+trap 'handle_exit' EXIT
 
 # Проверка переменных окружения
 : "${ONEC_VERSION:?❌ ONEC_VERSION не задан! Проверь переменные окружения.}"
@@ -36,11 +40,14 @@ echo "🔍 Получение списка кластеров..."
 CLUSTERS=$($RAC_BIN 127.0.0.1 $RAS_PORT cluster list | awk '/cluster/ {print $3}')
 CLUSTER_COUNT=$(echo "$CLUSTERS" | wc -w)
 
-if [ "$CLUSTER_COUNT" -eq 0 ]; then
-    echo "❌ Кластер не найден. Этот скрипт не должен создавать кластер." >&2
+if [ "$CLUSTER_COUNT" -eq 0 ]; then 
+    LAST_ERROR_MESSAGE="❌ Кластер не найден. Этот скрипт не должен создавать кластер."
+    echo "$LAST_ERROR_MESSAGE" >&2
     exit 1
-elif [ "$CLUSTER_COUNT" -gt 1 ]; then
-    echo "❌ Обнаружено несколько кластеров. Обновление невозможно." >&2
+    
+elif [ "$CLUSTER_COUNT" -gt 1 ]; then 
+    LAST_ERROR_MESSAGE="❌ Обнаружено несколько кластеров. Обновление невозможно."
+    echo "$LAST_ERROR_MESSAGE" >&2
     exit 1
 fi
 

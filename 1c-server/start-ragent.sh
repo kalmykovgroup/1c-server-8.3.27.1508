@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
-whoami
+
+# Уведомление при ошибке
+: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
+SCRIPT_NAME="start-ragent.sh (1c-server)"
+source ${NOTIFY_SH}
+trap 'handle_exit' EXIT
+
 # Проверка переменных окружения
 : "${ONEC_PORT_RANGE:?❌ ONEC_PORT_RANGE не задан! Проверь переменные окружения.}"
 : "${PATH_TO_1C:?❌ PATH_TO_1C не задан! Проверь переменные окружения.}"

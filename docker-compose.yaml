@@ -6,27 +6,29 @@ services:
         - POSTGRES_VERSION=${POSTGRES_VERSION}
         - PG_DATA_DIR=${PG_DATA_DIR}
         - PG_CONF_DIR=${PG_CONF_DIR}
-        - PG_BIN_DIR=${PG_BIN_DIR}     
-      dockerfile: Dockerfile  
+        - PG_BIN_DIR=${PG_BIN_DIR}
     container_name: pgsql
     restart: unless-stopped
-    secrets:
-      - postgres_password
-    environment:
-      - POSTGRES_VERSION=${POSTGRES_VERSION}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - PG_DATA_DIR=${PG_DATA_DIR}
-      - PG_CONF_DIR=${PG_CONF_DIR} 
-      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
-      - LANG=${LANG}
-      - LC_ALL=${LC_ALL}
-      - LANGUAGE=${LANGUAGE}
-    networks:
-      - internal_pgsql
     volumes:
       - pg-data-1c:${PG_DATA_DIR}  # 👈 Данные БД   
       - ./pgsql/logs:/var/lib/postgresql/16/main/log
+      - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
+    environment:
+      POSTGRES_VERSION: ${POSTGRES_VERSION}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PG_DATA_DIR: ${PG_DATA_DIR}
+      PG_CONF_DIR: ${PG_CONF_DIR} 
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      NOTIFY_SH: /opt/scripts/notify.sh
+      LANG: ${LANG}
+      LC_ALL: ${LC_ALL}
+      LANGUAGE: ${LANGUAGE}
+    networks:
+      - internal_pgsql
+    secrets:
+      - postgres_password 
+    
   server:
     build:
       context: ./1c-server
@@ -41,24 +43,12 @@ services:
         - HASP=${HASP}
         - PATH_TO_1C=${PATH_TO_1C}
         - WS_PUBLIC_DIR=${WS_PUBLIC_DIR}   
-        - APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR}   
-      dockerfile: Dockerfile 
+        - APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR}
     container_name: server
+    restart: unless-stopped
     hostname: ${DOMAIN}  # 👈 ОБЯЗАТЕЛЬНО
     depends_on:
       - pgsql
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_HOST: ${POSTGRES_HOST} 
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      VNC_PASSWORD_FILE: /run/secrets/vnc_server_pass
-      ONEC_VERSION: ${ONEC_VERSION}   
-      ONEC_PORT_RANGE: ${ONEC_PORT_RANGE}
-      CLUSTER_PORT_RAGENT: ${CLUSTER_PORT_RAGENT} 
-      DOMAIN: ${DOMAIN}
-     # ./web-config: ${PATH_TO_1C}
-      #- HOST_IP=host.docker.internal
     ports: 
       - "1540"  # ragent (тонкие клиенты)
       - "1541"  # rmngr/rphost
@@ -75,18 +65,29 @@ services:
       - 1c-user-home:${ONEC_DATA_COMMON} 
       - ./.env:/env/.env:ro  
       - ./1c-server/web-config/publication:${APACHE_PUBLICATION_CONF_DIR} 
-      - ./1c-server/web-config/vrd:/var/www/ws 
+      - ./1c-server/web-config/vrd:/var/www/ws
+      - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      VNC_PASSWORD_FILE: /run/secrets/vnc_server_pass
+      ONEC_VERSION: ${ONEC_VERSION}
+      ONEC_PORT_RANGE: ${ONEC_PORT_RANGE}
+      CLUSTER_PORT_RAGENT: ${CLUSTER_PORT_RAGENT}
+      DOMAIN: ${DOMAIN}
+      NOTIFY_SH: /opt/scripts/notify.sh
     networks:
        vnc-net:  # Для VNC
        internal_pgsql:  # Для связи с PostgreSQL 
        private:    # Для внешнего доступа (nginx, ping, telnet)
          aliases:
            - ${DOMAIN}  # Доменное имя для доступа внутри сети 
-    restart: unless-stopped
     secrets:
       - postgres_password
-      - vnc_server_pass
-      
+      - vnc_server_pass  
+  
   haspd:  # Мэнеджер лицензий HASP
     build:
       context: ./haspd
@@ -94,6 +95,7 @@ services:
         - LOG_DIR=${LOG_DIR}
         - BIN=${BIN}
     container_name: haspd
+    restart: unless-stopped
     hostname: ${DOMAIN}
     ports:
       - "5901" #VNC
@@ -101,17 +103,17 @@ services:
       - ./haspd/logs/:${LOG_DIR}
       - hasplm-data:${HASPD_DATA}
       - ./haspd/config/hasplm.ini:/etc/hasplm/hasplm.ini
+      - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
     environment:
-      VNC_PASSWORD_FILE: /run/secrets/vnc_haspd_pass   
+      VNC_PASSWORD_FILE: /run/secrets/vnc_haspd_pass
+      NOTIFY_SH: /opt/scripts/notify.sh
     networks:
-      - vnc-net  
-    restart: unless-stopped
+      - vnc-net
     secrets:
-      - vnc_haspd_pass
-      
+      - vnc_haspd_pass  
+  
   novnc-server:
-    build:
-      context: ./novnc-proxy
+    build: ./novnc-proxy
     container_name: novnc-server
     environment:
       - VNC_TARGET=server:5901
@@ -119,8 +121,7 @@ services:
       - vnc-net
 
   novnc-haspd:
-    build:
-      context: ./novnc-proxy
+    build: ./novnc-proxy
     container_name: novnc-haspd  
     environment:
       - VNC_TARGET=haspd:5901
@@ -128,11 +129,12 @@ services:
       - vnc-net 
       
   nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
+    build: ./nginx
     container_name: nginx
     restart: unless-stopped
+    depends_on:
+      - novnc-server
+      - novnc-haspd
     ports:
       - "1540:1540" # 1c # ragent (тонкие клиенты) точка входа для тонких клиентов
       - "1541:1541" # 1c # rmngr/rphost
@@ -149,74 +151,39 @@ services:
       - ./nginx/stream.d/:/etc/nginx/stream.d/    # конфиги для stream
       - ./nginx/certbot/conf:/etc/letsencrypt   # ← сертификаты    
       - ./nginx/certbot/www:/var/www/certbot
+      - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
     environment:
-      - IP_VM_1C=server
-      - DOMAIN=${DOMAIN}
-      - PROXMOX_IP=${PROXMOX_IP}
-      - PROXMOX_PORT=${PROXMOX_PORT}
-      - DOMAIN_VNC_SERVER=${DOMAIN_VNC_SERVER}
-      - DOMAIN_VNC_HASPD=${DOMAIN_VNC_HASPD}
+      IP_VM_1C: server
+      DOMAIN: ${DOMAIN}
+      PROXMOX_IP: ${PROXMOX_IP}
+      PROXMOX_PORT: ${PROXMOX_PORT}
+      DOMAIN_VNC_SERVER: ${DOMAIN_VNC_SERVER}
+      DOMAIN_VNC_HASPD: ${DOMAIN_VNC_HASPD}
+      NOTIFY_SH: /opt/scripts/notify.sh 
     networks:
       - public # Для связи с внешним миром
       - private # Для связи с server 
-      - vnc-net 
-    depends_on:
-      - novnc-server
-      - novnc-haspd
-      
+      - vnc-net  
+ 
   certbot:
-    build:
-      context: ./certbot
-      dockerfile: Dockerfile
+    build: ./certbot 
     container_name: certbot
-    secrets:
-      - cloudflare
+    restart: unless-stopped
     volumes:
       - ./nginx/certbot/conf:/etc/letsencrypt 
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
     environment:
-      - CLOUD_FLARE=/run/secrets/cloudflare.ini
-      - CERTBOT_EMAIL=${CERTBOT_EMAIL}
-      - DOMAIN=${DOMAIN}
-      - DOMAIN_VNC_SERVER=${DOMAIN_VNC_SERVER}
-      - DOMAIN_VNC_HASPD=${DOMAIN_VNC_HASPD}
-    restart: unless-stopped
-  
-  backup:
-    build: ./backup
-    container_name: backup
-    volumes:
-      - ./backups:/backup               # 📁 Локальное хранилище
-      - 1c-data:${ONEC_DATA}:ro    # 📂  /var/lib/1c-server
-      - pg-data-1c:${PG_DATA_DIR}:ro  # 🧠 /var/lib/postgresql/16/main
-      - 1c-user-home:${ONEC_DATA_COMMON}:ro  # 🔐 /home/usr1cv8/.1cv8/ 
-      - hasplm-data:${HASPD_DATA}:ro  # 🔐 /var/hasplm 
-      - ./1c-server/licenses/:${LICENSES}:ro
-      - ./backup/templates/:/etc/templates/
-      - /var/run/docker.sock:/var/run/docker.sock
-      
-    environment:
-      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE}
-      BACKUP_CLOUD_DIR: ${BACKUP_CLOUD_DIR}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      RCLONE_CONFIG_FILE: /run/secrets/rclone_config
-      ONEC_DATA: ${ONEC_DATA}
-      PG_DATA_DIR: ${PG_DATA_DIR}
-      ONEC_DATA_COMMON: ${ONEC_DATA_COMMON}
-      HASPD_DATA: ${HASPD_DATA}
-      LICENSES: ${LICENSES}
-      TEMPLATES: /etc/templates
-    depends_on:
-      - pgsql
-      - server 
-    secrets:
-      - postgres_password
-      - rclone_config
+      CLOUD_FLARE: /run/secrets/cloudflare.ini
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL}
+      DOMAIN: ${DOMAIN}
+      DOMAIN_VNC_SERVER: ${DOMAIN_VNC_SERVER}
+      DOMAIN_VNC_HASPD: ${DOMAIN_VNC_HASPD}
+      NOTIFY_SH: /opt/scripts/notify.sh
     networks:
-      - internal_pgsql   
-      - public   
+      - public # Для связи с внешним миром
+    secrets:
+      - cloudflare 
       
 networks:
   internal_pgsql:
@@ -243,4 +210,4 @@ secrets:
   cloudflare:  
     file: ./secrets/cloudflare.ini
   rclone_config:  
-    file: ./secrets/rclone.conf
+    file: ./secrets/rclone.conf 
