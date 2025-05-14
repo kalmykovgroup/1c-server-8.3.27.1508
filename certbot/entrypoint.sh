@@ -8,8 +8,8 @@ source ${NOTIFY_SH}
 trap 'handle_exit' EXIT
  
 : "${DOMAIN:?❌ DOMAIN не задан!}" 
-: "${DOMAIN_VNC_SERVER:?❌ DOMAIN_VNC_SERVER не задан!}" 
-: "${DOMAIN_VNC_HASPD:?❌ DOMAIN_VNC_HASPD не задан!}" 
+: "${DOMAIN_RDP_SERVER:?❌ DOMAIN_RDP_SERVER не задан!}" 
+: "${DOMAIN_RDP_HASPD:?❌ DOMAIN_RDP_HASPD не задан!}" 
 : "${CERTBOT_EMAIL:?❌ CERTBOT_EMAIL не задан!}" 
 : "${CLOUD_FLARE:?❌ CLOUD_FLARE не задан!}" 
 
@@ -63,8 +63,8 @@ issue_if_missing() {
 
 # --- Выпуск всех нужных сертификатов --- 
 issue_if_missing "${DOMAIN}" "${DOMAIN}"        # 1c.kalmykov.group
-issue_if_missing "${DOMAIN_VNC_SERVER}" "${DOMAIN_VNC_SERVER}"        # 1c.kalmykov.group
-issue_if_missing "${DOMAIN_VNC_HASPD}" "${DOMAIN_VNC_HASPD}"        # 1c.kalmykov.group
+issue_if_missing "${DOMAIN_RDP_SERVER}" "${DOMAIN_RDP_SERVER}"        # 1c.kalmykov.group
+issue_if_missing "${DOMAIN_RDP_HASPD}" "${DOMAIN_RDP_HASPD}"        # 1c.kalmykov.group
 
 echo "🔁 Проверка продления сертификатов при запуске..." 
 if ! certbot renew \

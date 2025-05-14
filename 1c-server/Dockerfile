@@ -2,9 +2,7 @@
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# --- Аргументы сборки ---
-ARG ONEC_USER
-ARG ONEC_GROUP
+# --- Аргументы сборки --- 
 ARG LOG_DIR
 ARG BIN
 ARG DATA
@@ -21,8 +19,6 @@ ENV LANG=ru_RU.UTF-8 \
     LANGUAGE=ru_RU.UTF-8 \
     LC_ALL=ru_RU.UTF-8 \
     PATH_TO_1C=${PATH_TO_1C} \
-    ONEC_USER=${ONEC_USER} \
-    ONEC_GROUP=${ONEC_GROUP} \
     LOG_DIR=${LOG_DIR} \
     BIN=${BIN} \
     DATA=${DATA} \
@@ -33,9 +29,6 @@ ENV LANG=ru_RU.UTF-8 \
     ONEC_INSTALLER_NAME=${ONEC_INSTALLER_NAME} \
     APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR} \
     PATH="${PATH_TO_1C}:${PATH}"
-
-# --- Создание пользователя ---
-RUN groupadd -r ${ONEC_GROUP} && useradd -m -r -g ${ONEC_GROUP} -s /bin/bash ${ONEC_USER}
 
 # --- Зависимости 1С сервера ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -122,24 +115,17 @@ RUN chmod +x /tmp/installer/*.run && chmod +x /tmp/installer/installAsRoot && \
 # client_thin_fib             -  Тонкий клиент с ФИАС (геокодирование).
 # desktop_icons               -  Ярлыки на рабочем столе (бессмысленно в контейнере).
 
-
-# --- Каталоги и права ---
-RUN mkdir -p \
-    ${LOG_DIR} ${DATA} ${CACHE} ${LICENSES} ${HASP} ${BIN} \
-    ${WS_PUBLIC_DIR} ${APACHE_PUBLICATION_CONF_DIR} /root/.vnc \
-    /home/${ONEC_USER} /var/log/supervisor && \
-    touch ${LOG_DIR}/supervisord.log && \
-    chown -R ${ONEC_USER}:${ONEC_GROUP} \
-      ${LOG_DIR} ${DATA} ${CACHE} ${LICENSES} ${HASP} ${BIN} ${WS_PUBLIC_DIR} \
-      /home/${ONEC_USER} /var/log/supervisor && \
-    chmod -R 775 ${LOG_DIR} ${DATA} ${CACHE} ${LICENSES} ${HASP} ${WS_PUBLIC_DIR}
-
-# --- Скрипты и конфиги --- 
-COPY init-ib.sh start-ragent.sh init-cluster.sh init-server.sh start-ras.sh init-web.sh start-vnc.sh ${BIN}/
-RUN chmod +x ${BIN}/*.sh && \
-    chown ${ONEC_USER}:${ONEC_GROUP} ${BIN}/*.sh 
  
-    
+# --- Каталоги и права ---
+RUN mkdir -p ${DATA} ${CACHE} ${LICENSES} ${HASP} ${BIN} \
+    ${WS_PUBLIC_DIR} ${APACHE_PUBLICATION_CONF_DIR} /root/.vnc
+ 
+# --- Скрипты и конфиги ---
+COPY init-ib.sh start-ragent.sh init-cluster.sh init-server.sh start-ras.sh init-web.sh ${BIN}/
+RUN chmod +x ${BIN}/*.sh
+
+
+
 COPY supervisord.template.conf /etc/supervisord.template.conf
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
@@ -147,8 +133,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # --- Apache ---
 RUN mkdir -p ${APACHE_PUBLICATION_CONF_DIR} && \
-    chown root:root ${APACHE_PUBLICATION_CONF_DIR} && \
     chmod 755 ${APACHE_PUBLICATION_CONF_DIR}
+
 
 # --- Запуск ---
 CMD ["/usr/local/bin/entrypoint.sh"]

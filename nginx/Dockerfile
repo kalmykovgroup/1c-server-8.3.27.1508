@@ -11,5 +11,5 @@ RUN apt update && \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Установим entrypoint
-ENTRYPOINT ["/bin/sh", "/entrypoint.sh"]
+# Установим entrypoint 
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]

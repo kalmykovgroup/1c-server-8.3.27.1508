@@ -33,8 +33,6 @@ services:
     build:
       context: ./1c-server
       args:
-        - ONEC_USER=${ONEC_USER}
-        - ONEC_GROUP=${ONEC_GROUP}
         - LOG_DIR=${LOG_DIR}
         - BIN=${BIN}
         - DATA=${ONEC_DATA}
@@ -54,7 +52,7 @@ services:
       - "1541"  # rmngr/rphost
       - "1545"  # ras (администрирование)
       - "1555"  # ras (мониторинг)  
-      - "5901" #VNC
+      - "3389" #RDP
       - "${ONEC_PORT_RANGE_DOCKER}" # Рабочие процессы (session)  
       - "80" # Apache внутри server теперь отдаёт Web-клиент
     volumes:
@@ -72,22 +70,22 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      VNC_PASSWORD_FILE: /run/secrets/vnc_server_pass
+      RDP_PASSWORD_FILE: /run/secrets/rdp_server_pass
       ONEC_VERSION: ${ONEC_VERSION}
       ONEC_PORT_RANGE: ${ONEC_PORT_RANGE}
       CLUSTER_PORT_RAGENT: ${CLUSTER_PORT_RAGENT}
       DOMAIN: ${DOMAIN}
       NOTIFY_SH: /opt/scripts/notify.sh
     networks:
-       vnc-net:  # Для VNC
-       internal_pgsql:  # Для связи с PostgreSQL 
-       private:    # Для внешнего доступа (nginx, ping, telnet)
-         aliases:
-           - ${DOMAIN}  # Доменное имя для доступа внутри сети 
+      rdp-net:  # Для VNC
+      internal_pgsql:  # Для связи с PostgreSQL 
+      private:    # Для внешнего доступа (nginx, ping, telnet)
+        aliases:
+          - ${DOMAIN}  # Доменное имя для доступа внутри сети 
     secrets:
       - postgres_password
-      - vnc_server_pass  
-  
+      - rdp_server_pass
+
   haspd:  # Мэнеджер лицензий HASP
     build:
       context: ./haspd
@@ -98,48 +96,32 @@ services:
     restart: unless-stopped
     hostname: ${DOMAIN}
     ports:
-      - "5901" #VNC
+      - "3389" #RDP
     volumes:
       - ./haspd/logs/:${LOG_DIR}
       - hasplm-data:${HASPD_DATA}
       - ./haspd/config/hasplm.ini:/etc/hasplm/hasplm.ini
       - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
     environment:
-      VNC_PASSWORD_FILE: /run/secrets/vnc_haspd_pass
+      RDP_USER: ${RDP_USER}
+      RDP_PASSWORD_FILE: /run/secrets/rdp_haspd_pass
       NOTIFY_SH: /opt/scripts/notify.sh
     networks:
-      - vnc-net
+      - rdp-net
     secrets:
-      - vnc_haspd_pass  
-  
-  novnc-server:
-    build: ./novnc-proxy
-    container_name: novnc-server
-    environment:
-      - VNC_TARGET=server:5901
-    networks:
-      - vnc-net
+      - rdp_haspd_pass
 
-  novnc-haspd:
-    build: ./novnc-proxy
-    container_name: novnc-haspd  
-    environment:
-      - VNC_TARGET=haspd:5901
-    networks:
-      - vnc-net 
-      
   nginx:
     build: ./nginx
     container_name: nginx
-    restart: unless-stopped
-    depends_on:
-      - novnc-server
-      - novnc-haspd
+    restart: unless-stopped 
     ports:
       - "1540:1540" # 1c # ragent (тонкие клиенты) точка входа для тонких клиентов
       - "1541:1541" # 1c # rmngr/rphost
       - "1545:1545" # 1c # ras (администрирование)
       - "1555:1555" # 1c # ras (мониторинг) 
+      - "3390:3390" # RDP 
+      - "3391:3391" # RDP 
       - "${ONEC_PORT_RANGE_DOCKER}:${ONEC_PORT_RANGE_DOCKER}" #  1с Рабочие процессы(session) (100шт.)
       - "80:80" # Apache внутри server теперь отдаёт Web-клиент
       - "443:443"
@@ -157,14 +139,14 @@ services:
       DOMAIN: ${DOMAIN}
       PROXMOX_IP: ${PROXMOX_IP}
       PROXMOX_PORT: ${PROXMOX_PORT}
-      DOMAIN_VNC_SERVER: ${DOMAIN_VNC_SERVER}
-      DOMAIN_VNC_HASPD: ${DOMAIN_VNC_HASPD}
+      DOMAIN_RDP_SERVER: ${DOMAIN_RDP_SERVER}
+      DOMAIN_RDP_HASPD: ${DOMAIN_RDP_HASPD}
       NOTIFY_SH: /opt/scripts/notify.sh 
     networks:
       - public # Для связи с внешним миром
       - private # Для связи с server 
-      - vnc-net  
- 
+      - rdp-net
+
   certbot:
     build: ./certbot 
     container_name: certbot
@@ -177,8 +159,8 @@ services:
       CLOUD_FLARE: /run/secrets/cloudflare.ini
       CERTBOT_EMAIL: ${CERTBOT_EMAIL}
       DOMAIN: ${DOMAIN}
-      DOMAIN_VNC_SERVER: ${DOMAIN_VNC_SERVER}
-      DOMAIN_VNC_HASPD: ${DOMAIN_VNC_HASPD}
+      DOMAIN_RDP_SERVER: ${DOMAIN_RDP_SERVER}
+      DOMAIN_RDP_HASPD: ${DOMAIN_RDP_HASPD}
       NOTIFY_SH: /opt/scripts/notify.sh
     networks:
       - public # Для связи с внешним миром
@@ -192,7 +174,7 @@ networks:
     driver: bridge  # Обычная сеть для nginx 
   private:
     internal: true  
-  vnc-net:
+  rdp-net:
     driver: bridge  
 volumes:
   pg-data-1c: #postgres хранит базы данных 
@@ -203,10 +185,10 @@ volumes:
 secrets:
   postgres_password:
     file: ./secrets/postgres_password.txt
-  vnc_server_pass:  
-    file: ./secrets/vnc_server_pass.txt
-  vnc_haspd_pass:  
-    file: ./secrets/vnc_haspd_pass.txt
+  rdp_server_pass:  
+    file: ./secrets/rdp_server_pass.txt
+  rdp_haspd_pass:  
+    file: ./secrets/rdp_haspd_pass.txt
   cloudflare:  
     file: ./secrets/cloudflare.ini
   rclone_config:  
