@@ -83,8 +83,12 @@ RUN cp /etc/pam.d/common-session /etc/pam.d/xrdp-sesman
 # Обновляем конфигурацию XRDP для запуска XFCE
 RUN sed -i 's|^.*exec.*|exec startxfce4|' /etc/xrdp/startwm.sh
 
-RUN apt-get install -y epiphany-browser #Добавим установку лёгкого браузера для подключения к haspd
-
+# Добавим PPA mozillateam и настроим приоритет, чтобы ставился deb-пакет
+RUN add-apt-repository -y ppa:mozillateam/ppa && \
+    echo 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001' > /etc/apt/preferences.d/mozilla-firefox && \
+    apt-get update && \
+    apt-get install -y firefox
+    
 # Очистка
 RUN apt-get clean
 RUN rm -rf /var/lib/apt/lists/*

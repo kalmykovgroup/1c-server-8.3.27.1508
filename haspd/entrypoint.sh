@@ -7,9 +7,7 @@ source ${NOTIFY_SH}
 trap 'handle_exit' EXIT
 
 echo "🧹 Очищаем логи и временные файлы..."
-find "$LOG_DIR" -type f -name "*.log" -exec truncate -s 0 {} \;
-rm -rf /tmp/.X* /tmp/.X11-unix /root/.vnc/*.pid
-
+find "$LOG_DIR" -type f -name "*.log" -exec truncate -s 0 {} \; 
 
 : "${RDP_USER:?❌ RDP_USER не задан!}" 
 
@@ -50,6 +48,23 @@ chown "$RDP_USER:$RDP_USER" "$USER_HOME/.Xauthority"
 
 # Добавление пользователя в группы
 usermod -aG audio,video "$RDP_USER"
+
+mkdir -p /home/ivan/Desktop
+
+cat > /home/ivan/Desktop/hasp.desktop <<EOF
+[Desktop Entry]
+Version=1.0
+Name=HASP Admin Control Center
+Comment=Открыть http://localhost:1947
+Exec=firefox http://localhost:1947
+Icon=firefox
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+EOF
+
+chmod +x /home/ivan/Desktop/hasp.desktop
+chown ivan:ivan /home/ivan/Desktop/hasp.desktop
 
 echo "✅ Окружение настроено."
 
