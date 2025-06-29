@@ -17,13 +17,21 @@ RAC_BIN="${PATH_TO_1C}/rac"
 RAS_PORT=1545
 RMNGR_PORT=1541
 EXPECTED_HOSTNAME="$DOMAIN"
-MARKER_FILE="${DATA}/cluster-initialized.marker"
+MARKER_FILE="${DATA}/full-initialized.marker"
 
 echo "📦 Старт инициализации кластера..."
 
+# Проверка существующего marker-файла
 if [ -f "$MARKER_FILE" ]; then
-  echo "✅ Кластер уже инициализирован."
-  exit 0
+  echo "✅ Marker файл найден: $MARKER_FILE"
+  SAVED_HOST=$(grep '^HOSTNAME=' "$MARKER_FILE" | cut -d'=' -f2)
+  if [ "$SAVED_HOST" == "$DOMAIN" ]; then
+      echo "✅ Хост совпадает, пересоздание кластера не требуется."
+      exit 0
+  else
+      echo "⚠️ Хост в marker не совпадает! Был: $SAVED_HOST, сейчас: $DOMAIN"
+      echo "🧹 Удаляем старый кластер..."
+  fi
 fi
 
 # Ждём RAS
@@ -44,7 +52,6 @@ if [ "$CLUSTER_COUNT" -eq 0 ]; then
     LAST_ERROR_MESSAGE="❌ Кластер не найден. Этот скрипт не должен создавать кластер."
     echo "$LAST_ERROR_MESSAGE" >&2
     exit 1
-    
 elif [ "$CLUSTER_COUNT" -gt 1 ]; then 
     LAST_ERROR_MESSAGE="❌ Обнаружено несколько кластеров. Обновление невозможно."
     echo "$LAST_ERROR_MESSAGE" >&2
@@ -65,15 +72,24 @@ if [ "$CLUSTER_HOST" != "$EXPECTED_HOSTNAME" ]; then
     $RAC_BIN 127.0.0.1 $RAS_PORT cluster remove --cluster="$CLUSTER_ID"
 
     echo "🛠️ Создание нового кластера с host='$EXPECTED_HOSTNAME'"
-
-    CMD="$RAC_BIN 127.0.0.1 $RAS_PORT cluster insert --host=\"$EXPECTED_HOSTNAME\" --port=$RMNGR_PORT"
-    echo "🔧 Выполняем команду: $CMD"
-    eval $CMD
+    $RAC_BIN 127.0.0.1 $RAS_PORT cluster insert --host="$EXPECTED_HOSTNAME" --port=$RMNGR_PORT
 
     echo "✅ Кластер пересоздан."
 else
     echo "✅ Host совпадает. Обновление не требуется."
 fi
 
-touch "$MARKER_FILE"
+# Записываем новый marker-файл
+{
+  echo "CLUSTER_ID=${CLUSTER_ID}"
+  echo "HOSTNAME=${DOMAIN}"
+  echo "TIMESTAMP=$(date -Iseconds)"
+} > "$MARKER_FILE"
+
+sync
+
+echo "📄 Содержимое marker-файла:"
+cat "$MARKER_FILE"
+echo "✅ Marker файл создан: $MARKER_FILE"
+
 echo "✅ Инициализация кластера завершена."

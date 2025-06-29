@@ -1,6 +1,5 @@
-# 1c-server
-# 1c-server
-# 1c-server
-# 1c-server
-# 1c-server
 # 1c-server-8.3.27.1508
+
+# Если передать параметр -regport, то ragent инициализирует запуск rmngr, а если supervisord запускает rmngr сам, то возникает конфликт.
+# Нужно выбировать один из двух вариантов запуска rmngr.
+

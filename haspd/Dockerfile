@@ -71,7 +71,6 @@ RUN apt-get install -y --no-install-recommends xserver-xorg-core
 
 RUN adduser xrdp ssl-cert
 
-
 # Назначаем XFCE как сессию по умолчанию для всех пользователей
 RUN echo "startxfce4" > /etc/skel/.xsession
 RUN echo "startxfce4" > /root/.xsession
@@ -109,14 +108,11 @@ RUN apt-get install -y /tmp/aksusbd.deb && \
 # Создаем директории для логов и бинарных файлов
 RUN mkdir -p ${LOG_DIR} ${BIN} 
     
-
-
 # Устанавливаем компоненты, часто необходимые для xrdp-sesman (если нет)
 #polkitd — это демон PolicyKit, который:
 #позволяет приложениям запрашивать привилегии (например, XFCE хочет доступ к монтированию, настройке сети и т.п.); 
 RUN apt-get install -y --no-install-recommends polkitd
 
- 
 # Конфигурация supervisord
 COPY supervisord.template.conf /etc/supervisord.template.conf
 

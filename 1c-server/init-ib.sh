@@ -36,7 +36,7 @@ DB_HOST="${POSTGRES_HOST}"
 : "${POSTGRES_USER:?❌ Не указано имя пользователя Postgres}"
 : "${POSTGRES_PASSWORD:?❌ Не указан пароль пользователя Postgres}"
 : "${IB_NAME:?❌ Не указано имя информационной базы}"
-: "${DB_HOST:?❌ Не указан хост базы данных}" 
+: "${DB_HOST:?❌ Не указан хост базы данных}"
 
 echo "ℹ️ Имя базы данных:        $IB_NAME"
 echo "ℹ️ Пользователь Postgres:  $POSTGRES_USER"
@@ -58,12 +58,12 @@ for i in {1..60}; do
 done
 
 [ -z "$CLUSTER_ID" ] && {
-      LAST_ERROR_MESSAGE="❌ Кластер не найден"
-      echo "$LAST_ERROR_MESSAGE" >&2
-      exit 1 
-  }
+    LAST_ERROR_MESSAGE="❌ Кластер не найден"
+    echo "$LAST_ERROR_MESSAGE" >&2
+    exit 1
+}
 echo "✅ Кластер найден: $CLUSTER_ID"
- 
+
 # Проверка публикации через rac 
 IB_EXIST=$(
   "$RAC_BIN" "$RAC_HOST" "$RAC_PORT" infobase summary list --cluster="$CLUSTER_ID" | \
@@ -78,7 +78,6 @@ if [ -n "$IB_EXIST" ]; then
     echo "ℹ️ Публикация для '$IB_NAME' уже существует по данным RAS. Пропускаем."
     exit 0
 fi
-
 
 # 🚀 Создание новой ИБ
 echo "🚀 Создание новой ИБ '$IB_NAME'..."
@@ -104,7 +103,7 @@ else
     exit 1
 fi
 
-# 📦 Получение UUID
+# 🔎 Получить UUID ИБ по имени
 get_ib_uuid() {
     "$RAC_BIN" "$RAC_HOST" "$RAC_PORT" infobase summary list --cluster="$CLUSTER_ID" | \
     awk -v name="$IB_NAME" '$1=="infobase"{uuid=$3} $1=="name" && $3==name {print uuid; exit}'
@@ -112,9 +111,9 @@ get_ib_uuid() {
 
 IB_UUID=$(get_ib_uuid)
 [ -z "$IB_UUID" ] && {  
-  LAST_ERROR_MESSAGE="❌ Не удалось получить UUID для '$IB_NAME'"
-  echo "$LAST_ERROR_MESSAGE" >&2
-  exit 1
+    LAST_ERROR_MESSAGE="❌ Не удалось получить UUID для '$IB_NAME'"
+    echo "$LAST_ERROR_MESSAGE" >&2
+    exit 1
 }
 
 # 📢 Публикация ИБ
@@ -126,7 +125,6 @@ echo "📢 Публикация ИБ '$IB_NAME'..."
     --license-distribution=allow \
     --scheduled-jobs-deny=off \
     --sessions-deny=off
- 
 
 # 🔍 Проверка параметров публикации
 INFO_OUTPUT=$("$RAC_BIN" "$RAC_HOST" "$RAC_PORT" infobase info --cluster="$CLUSTER_ID" --infobase="$IB_UUID")
@@ -143,3 +141,15 @@ else
     echo "scheduled-jobs-deny:  $SCHED_JOBS"
 fi
 
+# 💾 Запись marker-файла
+MARKER_FILE="${DATA}/ib-${IB_NAME}.marker"
+{
+    echo "IB_NAME=${IB_NAME}"
+    echo "UUID=${IB_UUID}"
+    echo "TIMESTAMP=$(date -Iseconds)"
+} > "$MARKER_FILE"
+sync
+
+echo "📄 Содержимое marker-файла:"
+cat "$MARKER_FILE"
+echo "✅ Marker файл создан: $MARKER_FILE"

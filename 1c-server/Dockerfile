@@ -41,40 +41,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #
 RUN apt-get update && apt-get install -y --no-install-recommends iputils-ping curl
 
-# --- VNC и GUI ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # 🖥️ Сам VNC-сервер (основной процесс Xvnc)
-    tigervnc-standalone-server \
-    # 📦 Общие библиотеки для VNC
-    tigervnc-common \
-    # 🛠️ Утилиты VNC: vncpasswd, vncconfig и т.п.
-    tigervnc-tools \
-    # 🪟 Основное графическое окружение XFCE (панели, рабочий стол)
+    # 🖥️ Рабочее окружение XFCE
     xfce4 \
-    # 🔧 Полезные утилиты и компоненты для XFCE (xfce4-terminal и др.)
     xfce4-goodies \
-    # 🔌 D-Bus через X11 (требуется большинству GUI-программ, включая 1С)
     dbus-x11 \
-    # 🔡 Базовые X-шрифты (нужны для корректного отображения интерфейса)
     xfonts-base \
-    # 🔐 Авторизация X-сессий (важно для запуска через VNC)
     xauth \
-    # 📂 xdg-open и другие утилиты взаимодействия с рабочим окружением
     xdg-utils \
-    # 🧱 GTK-библиотека — основа графического интерфейса 1С
+    # 🔒 RDP-сервер и его зависимости
+    xrdp \
+    xinit \
+    xorgxrdp \
+    xserver-xorg-core \
+    # 🧱 GTK и другие GUI-библиотеки, нужные для 1С
     libgtk-3-0 \
-    # 🖼️ Отрисовка изображений, иконок, интерфейсов
     libgdk-pixbuf2.0-0 \
-    # 🎮 OpenGL-библиотека (нужна для PDF-форм, отрисовки, графики)
     libgl1 \
-    # 🔧 Обработка XML через XSLT (некоторые компоненты 1С это используют)
     libxslt1.1 \
-    # 🌐 WebKit2 — обязателен для client_full 1С
     libwebkit2gtk-4.1-0 \
-    # 🔁 glib-интеграция с D-Bus — используется серверной частью 1С
     libdbus-glib-1-2 \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+ 
+# (Удаленный рабочий стол )
+RUN adduser xrdp ssl-cert
+RUN echo "startxfce4" > /etc/skel/.xsession
+RUN echo "startxfce4" > /root/.xsession
+RUN apt-get install -y --no-install-recommends xserver-xorg-core
+RUN cp /etc/pam.d/common-session /etc/pam.d/xrdp-sesman
+RUN sed -i 's|^.*exec.*|exec startxfce4|' /etc/xrdp/startwm.sh # Обновляем конфигурацию XRDP для запуска XFCE
 
 # --- Шрифты Microsoft ---
 RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
@@ -115,7 +111,11 @@ RUN chmod +x /tmp/installer/*.run && chmod +x /tmp/installer/installAsRoot && \
 # client_thin_fib             -  Тонкий клиент с ФИАС (геокодирование).
 # desktop_icons               -  Ярлыки на рабочем столе (бессмысленно в контейнере).
 
+RUN apt-get update \
+ && add-apt-repository universe \
+ && apt-get update && apt-get install -y sudo
  
+
 # --- Каталоги и права ---
 RUN mkdir -p ${DATA} ${CACHE} ${LICENSES} ${HASP} ${BIN} \
     ${WS_PUBLIC_DIR} ${APACHE_PUBLICATION_CONF_DIR} /root/.vnc

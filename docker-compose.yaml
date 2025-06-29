@@ -70,6 +70,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      RDP_USER: ${RDP_SERVER_USER}
       RDP_PASSWORD_FILE: /run/secrets/rdp_server_pass
       ONEC_VERSION: ${ONEC_VERSION}
       ONEC_PORT_RANGE: ${ONEC_PORT_RANGE}
@@ -103,7 +104,7 @@ services:
       - ./haspd/config/hasplm.ini:/etc/hasplm/hasplm.ini
       - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
     environment:
-      RDP_USER: ${RDP_USER}
+      RDP_USER: ${RDP_HASPD_USER}
       RDP_PASSWORD_FILE: /run/secrets/rdp_haspd_pass
       NOTIFY_SH: /opt/scripts/notify.sh
     networks:
@@ -120,8 +121,8 @@ services:
       - "1541:1541" # 1c # rmngr/rphost
       - "1545:1545" # 1c # ras (администрирование)
       - "1555:1555" # 1c # ras (мониторинг) 
-      - "3390:3390" # RDP 
-      - "3391:3391" # RDP 
+      - "3390:3390" # RDP server
+      - "3391:3391" # RDP haspd
       - "${ONEC_PORT_RANGE_DOCKER}:${ONEC_PORT_RANGE_DOCKER}" #  1с Рабочие процессы(session) (100шт.)
       - "80:80" # Apache внутри server теперь отдаёт Web-клиент
       - "443:443"
@@ -156,7 +157,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
     environment:
-      CLOUD_FLARE: /run/secrets/cloudflare.ini
+      CLOUD_FLARE: /run/secrets/cloudflare
       CERTBOT_EMAIL: ${CERTBOT_EMAIL}
       DOMAIN: ${DOMAIN}
       DOMAIN_RDP_SERVER: ${DOMAIN_RDP_SERVER}

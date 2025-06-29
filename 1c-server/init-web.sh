@@ -2,40 +2,50 @@
 set -e
 
 # Уведомление при ошибке
-: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
-SCRIPT_NAME="init-server.sh (1c-server)"
+: "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}"
+SCRIPT_NAME="init-web.sh (1c-server)"
 source ${NOTIFY_SH}
 trap 'handle_exit' EXIT
 
-IB_NAME="${1:-$POSTGRES_DB}" # "1c-database"
+IB_NAME="${1:-$POSTGRES_DB}" # например: "1c-database"
 
-# Проверка необходимых переменных окружения 
-: "${DOMAIN:?❌ DOMAIN не задан! Проверь переменные окружения.}" # "1c.kalmykov-group.ru"
-: "${APACHE_PUBLICATION_CONF_DIR:?❌ APACHE_PUBLICATION_CONF_DIR не задан! Проверь переменные окружения.}" #"/etc/apache2/sites-available"
-: "${PATH_TO_1C:?❌ PATH_TO_1C не задан! Проверь переменные окружения.}" #"/opt/1cv8/x86_64/${VERSION}"
-: "${IB_NAME:?❌ IB_NAME не задан! Проверь переменные окружения.}"
-: "${WS_PUBLIC_DIR:?❌ WS_PUBLIC_DIR не задан! Проверь переменные окружения.}" #"/var/www/ws"
+# Проверка переменных окружения
+: "${DOMAIN:?❌ DOMAIN не задан! Проверь переменные окружения.}"
+: "${APACHE_PUBLICATION_CONF_DIR:?❌ APACHE_PUBLICATION_CONF_DIR не задан!}"
+: "${PATH_TO_1C:?❌ PATH_TO_1C не задан!}"
+: "${IB_NAME:?❌ IB_NAME не задан!}"
+: "${WS_PUBLIC_DIR:?❌ WS_PUBLIC_DIR не задан!}"
 
-
-# 🔧 Конфигурация    
-  
-
-APACHE_PUBLICATION_CONF_FILE="${IB_NAME}.conf" # 1c-database.conf
-WS_PUBLIC_DIR="${WS_PUBLIC_DIR}/${IB_NAME}"  #"/var/www/ws/1c-database"
-VRD_FILE="${WS_PUBLIC_DIR}/default.vrd" #"/var/www/ws/1c-database/default.vrd"
+APACHE_PUBLICATION_CONF_FILE="${IB_NAME}.conf"
+WS_PUBLIC_DIR_FULL="${WS_PUBLIC_DIR}/${IB_NAME}"
+VRD_FILE="${WS_PUBLIC_DIR_FULL}/default.vrd"
+CONF_PATH="${APACHE_PUBLICATION_CONF_DIR}/${APACHE_PUBLICATION_CONF_FILE}"
+MARKER_FILE="${WS_PUBLIC_DIR_FULL}/web-${IB_NAME}.marker"
 
 echo "DOMAIN: $DOMAIN"
 echo "APACHE_PUBLICATION_CONF_DIR: $APACHE_PUBLICATION_CONF_DIR"
 echo "PATH_TO_1C: $PATH_TO_1C"
 echo "IB_NAME: $IB_NAME"
-echo "WS_PUBLIC_DIR: $WS_PUBLIC_DIR"
+echo "WS_PUBLIC_DIR_FULL: $WS_PUBLIC_DIR_FULL"
 echo "APACHE_PUBLICATION_CONF_FILE: $APACHE_PUBLICATION_CONF_FILE"
 echo "VRD_FILE: $VRD_FILE"
 
+# Проверка marker
+if [ -f "$MARKER_FILE" ]; then
+    SAVED_DOMAIN=$(grep '^DOMAIN=' "$MARKER_FILE" | cut -d'=' -f2)
+    SAVED_IB_NAME=$(grep '^IB_NAME=' "$MARKER_FILE" | cut -d'=' -f2)
+    echo "✅ Marker файл найден: $MARKER_FILE"
+    if [ "$SAVED_DOMAIN" == "$DOMAIN" ] && [ "$SAVED_IB_NAME" == "$IB_NAME" ]; then
+        echo "✅ DOMAIN и IB_NAME совпадают, пересоздание не требуется."
+        exit 0
+    else
+        echo "⚠️ Значения в marker не совпадают! Пересоздаём VRD и Apache-конфиг..."
+        rm -f "$CONF_PATH" "$VRD_FILE" "$MARKER_FILE"
+    fi
+fi
 
 # ⏳ Ждём завершения init-ib
 echo "⏳ Ожидание завершения init-ib..."
-
 for i in {1..60}; do
   STATUS=$(supervisorctl status init-ib | awk '{print $2}')
   echo "🔍 init-ib статус: $STATUS"
@@ -46,23 +56,19 @@ for i in {1..60}; do
   sleep 3
 done
 
-# ❗ Если init-ib не завершился — ошибка
 STATUS=$(supervisorctl status init-ib | awk '{print $2}')
-if [[ "$STATUS" != "EXITED" ]]; then 
+if [[ "$STATUS" != "EXITED" ]]; then
   LAST_ERROR_MESSAGE="❌ init-ib не завершился за отведённое время (статус: $STATUS)"
   echo "$LAST_ERROR_MESSAGE" >&2
   exit 1
 fi
 
+echo "📦 Проверка VRD и Apache-конфига..."
 
-echo "📦 Публикация ИБ '${IB_NAME}'"
- 
+# Создаём директорию для VRD
+mkdir -p "$WS_PUBLIC_DIR_FULL"
 
-# Убедимся, что директория для VRD существует
-mkdir -p "$WS_PUBLIC_DIR"
-
-# Создаём VRD 
-
+# Генерация VRD
 echo "⚙️ Генерация VRD в $VRD_FILE"
 cat > "$VRD_FILE" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -81,15 +87,13 @@ cat > "$VRD_FILE" <<EOF
 </point>
 EOF
 
-# Генерация Apache-конфига публикации
-CONF_PATH="${APACHE_PUBLICATION_CONF_DIR}/${APACHE_PUBLICATION_CONF_FILE}"
-if [ ! -f "$CONF_PATH" ]; then
-  echo "⚙️ Создание Apache-конфигурации публикации..."
-  cat > "$CONF_PATH" <<EOF
+# Генерация Apache-конфига
+echo "⚙️ Создание Apache-конфигурации в $CONF_PATH"
+cat > "$CONF_PATH" <<EOF
 LoadModule _1cws_module "${PATH_TO_1C}/wsap24.so"
 
-Alias "/${IB_NAME}" "${WS_PUBLIC_DIR}"
-<Directory "${WS_PUBLIC_DIR}">
+Alias "/${IB_NAME}" "${WS_PUBLIC_DIR_FULL}"
+<Directory "${WS_PUBLIC_DIR_FULL}">
     AllowOverride All
     Options None
     Require all granted
@@ -97,15 +101,25 @@ Alias "/${IB_NAME}" "${WS_PUBLIC_DIR}"
     ManagedApplicationDescriptor "${VRD_FILE}"
 </Directory>
 EOF
-else
-  echo "✅ Apache-конфигурация уже есть — пропускаем."
-fi
 
 # Активируем сайт
 a2ensite "${APACHE_PUBLICATION_CONF_FILE}" || true
 a2dissite 000-default || true
+
 # Проверка конфигурации и перезапуск
 apache2ctl configtest
-apache2ctl graceful 
+apache2ctl graceful
+
+# Запись marker-файла
+{
+    echo "DOMAIN=${DOMAIN}"
+    echo "IB_NAME=${IB_NAME}"
+    echo "TIMESTAMP=$(date -Iseconds)"
+} > "$MARKER_FILE"
+sync
+
+echo "📄 Содержимое marker-файла:"
+cat "$MARKER_FILE"
+echo "✅ Marker файл создан: $MARKER_FILE"
 
 echo "✅ Веб-клиент успешно опубликован на /${IB_NAME}"

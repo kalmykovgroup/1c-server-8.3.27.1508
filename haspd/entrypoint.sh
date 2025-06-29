@@ -29,29 +29,29 @@ if ! id "$RDP_USER" &>/dev/null; then
   echo "startxfce4" > /home/$RDP_USER/.xsession
   chown $RDP_USER:$RDP_USER /home/$RDP_USER/.xsession
 
-echo "👤 Настраиваем окружение пользователя '$RDP_USER'..."
+  echo "👤 Настраиваем окружение пользователя '$RDP_USER'..."
 
-USER_HOME="/home/$RDP_USER"
+  USER_HOME="/home/$RDP_USER"
 
-# Создание домашней директории
-mkdir -p "$USER_HOME"
-chown "$RDP_USER:$RDP_USER" "$USER_HOME"
+  # Создание домашней директории
+  mkdir -p "$USER_HOME"
+  chown "$RDP_USER:$RDP_USER" "$USER_HOME"
 
-# Создание .xsession
-echo "startxfce4" > "$USER_HOME/.xsession"
-chmod +x "$USER_HOME/.xsession"
-chown "$RDP_USER:$RDP_USER" "$USER_HOME/.xsession"
+  # Создание .xsession
+  echo "startxfce4" > "$USER_HOME/.xsession"
+  chmod +x "$USER_HOME/.xsession"
+  chown "$RDP_USER:$RDP_USER" "$USER_HOME/.xsession"
 
-# Создание .Xauthority
-su - "$RDP_USER" -c "touch ~/.Xauthority"
-chown "$RDP_USER:$RDP_USER" "$USER_HOME/.Xauthority"
+  # Создание .Xauthority
+  su - "$RDP_USER" -c "touch ~/.Xauthority"
+  chown "$RDP_USER:$RDP_USER" "$USER_HOME/.Xauthority"
 
-# Добавление пользователя в группы
-usermod -aG audio,video "$RDP_USER"
+  # Добавление пользователя в группы
+  usermod -aG audio,video "$RDP_USER"
 
-mkdir -p /home/ivan/Desktop
+  mkdir -p /home/${RDP_USER}/Desktop
 
-cat > /home/ivan/Desktop/hasp.desktop <<EOF
+cat << 'EOF' > "/home/${RDP_USER}/Desktop/hasp.desktop"
 [Desktop Entry]
 Version=1.0
 Name=HASP Admin Control Center
@@ -63,14 +63,13 @@ Type=Application
 Categories=Network;WebBrowser;
 EOF
 
-chmod +x /home/ivan/Desktop/hasp.desktop
-chown ivan:ivan /home/ivan/Desktop/hasp.desktop
+
+chmod +x /home/${RDP_USER}/Desktop/hasp.desktop
+chown $RDP_USER:$RDP_USER /home/${RDP_USER}/Desktop/hasp.desktop
 
 echo "✅ Окружение настроено."
 
 fi
-
-: "${LOG_DIR:?❌ LOG_DIR не задан! Проверь переменные окружения.}" 
 
 rm -f /var/run/xrdp/xrdp-sesman.pid
  
