@@ -15,8 +15,7 @@ trap 'handle_exit' EXIT
 
 RAC_BIN="${PATH_TO_1C}/rac"
 RAS_PORT=1545
-RMNGR_PORT=1541
-EXPECTED_HOSTNAME="$DOMAIN"
+RMNGR_PORT=1541 
 MARKER_FILE="${DATA}/full-initialized.marker"
 
 echo "📦 Старт инициализации кластера..."
@@ -65,16 +64,26 @@ echo "🔎 Проверка имени хоста в кластере..."
 CLUSTER_HOST=$($RAC_BIN 127.0.0.1 $RAS_PORT cluster info --cluster="$CLUSTER_ID" | awk -F':' '/host/{gsub(/^[ \t]+/, "", $2); print $2}')
 echo "ℹ️ Текущий host: '$CLUSTER_HOST'"
 
-if [ "$CLUSTER_HOST" != "$EXPECTED_HOSTNAME" ]; then
-    echo "⚠️ Host кластера '$CLUSTER_HOST' отличается от ожидаемого '$EXPECTED_HOSTNAME'"
+if [ "$CLUSTER_HOST" != "$DOMAIN" ]; then
+    echo "⚠️ Host кластера '$CLUSTER_HOST' отличается от ожидаемого '$DOMAIN'"
     echo "🧹 Удаляем старый кластер..."
 
     $RAC_BIN 127.0.0.1 $RAS_PORT cluster remove --cluster="$CLUSTER_ID"
 
-    echo "🛠️ Создание нового кластера с host='$EXPECTED_HOSTNAME'"
-    $RAC_BIN 127.0.0.1 $RAS_PORT cluster insert --host="$EXPECTED_HOSTNAME" --port=$RMNGR_PORT
+    echo "🛠️ Создание нового кластера с host='$DOMAIN'"
+    $RAC_BIN 127.0.0.1 $RAS_PORT cluster insert --host=$DOMAIN --port=$RMNGR_PORT
 
-    echo "✅ Кластер пересоздан."
+    echo "⏳ Ожидание регистрации нового кластера..."
+    for i in {1..10}; do
+        CLUSTERS=$($RAC_BIN 127.0.0.1 $RAS_PORT cluster list | awk '/cluster/ {print $3}')
+        if [ -n "$CLUSTERS" ]; then
+            break
+        fi
+        sleep 1
+    done
+
+    CLUSTER_ID="$CLUSTERS"
+    echo "✅ Новый кластер зарегистрирован: $CLUSTER_ID"
 else
     echo "✅ Host совпадает. Обновление не требуется."
 fi

@@ -4,9 +4,10 @@ set -euo pipefail
 # Уведомление при ошибке
 : "${NOTIFY_SH:?❌ NOTIFY_SH не задан!}" 
 SCRIPT_NAME="entrypoint.sh (1c-server)"
-source ${NOTIFY_SH}
+source "${NOTIFY_SH}"
 trap 'handle_exit' EXIT
- 
+
+# Переменные окружения
 : "${DOMAIN:?❌ DOMAIN не задан!}" 
 : "${DOMAIN_RDP_SERVER:?❌ DOMAIN_RDP_SERVER не задан!}" 
 : "${DOMAIN_RDP_HASPD:?❌ DOMAIN_RDP_HASPD не задан!}" 
@@ -18,14 +19,39 @@ echo "🔹 EMAIL: ${CERTBOT_EMAIL}"
 echo "🔹 DOMAIN: ${DOMAIN}"
 
 RENEW_CRON="/etc/cron.d/certbot-renew"
- 
-issue_if_missing() {
+
+# --- Проверка срока действия ---
+is_cert_valid() {
+  local cert_name="$1"
+  local cert_file="/etc/letsencrypt/live/${cert_name}/cert.pem"
+
+  if [[ ! -f "$cert_file" ]]; then
+    return 1
+  fi
+
+  local end_date
+  end_date=$(openssl x509 -enddate -noout -in "$cert_file" | cut -d= -f2)
+  local end_ts
+  end_ts=$(date -d "$end_date" +%s || return 1)
+  local now_ts
+  now_ts=$(date +%s)
+  local diff_days=$(( (end_ts - now_ts) / 86400 ))
+
+  if [[ $diff_days -lt 7 ]]; then
+    echo "⚠️  Сертификат ${cert_name} истекает через ${diff_days} дней — перевыпускаем"
+    return 1
+  fi
+
+  echo "✅ Сертификат ${cert_name} действителен ещё ${diff_days} дней"
+  return 0
+}
+
+# --- Выпуск при отсутствии или истечении ---
+issue_if_missing_or_expired() {
   local cert_name="$1"
   local domains=("${@:2}")
-  local cert_path="/etc/letsencrypt/live/${cert_name}/fullchain.pem"
 
-  if [[ -f "$cert_path" ]]; then
-    echo "✅ Сертификат для ${cert_name} уже существует — пропускаем"
+  if is_cert_valid "$cert_name"; then
     return
   fi
 
@@ -47,11 +73,11 @@ issue_if_missing() {
 
   if [[ $status -ne 0 ]]; then
     if echo "$output" | grep -q "too many certificates"; then 
-      LAST_ERROR_MESSAGE="⛔ Превышен лимит Let's Encrypt на выпуск для ${cert_name} \n $output" | grep -oE "retry after .*"
+      LAST_ERROR_MESSAGE="⛔ Превышен лимит Let's Encrypt на выпуск для ${cert_name}\n$output"
       echo "$LAST_ERROR_MESSAGE" >&2
       exit 1
     else
-      LAST_ERROR_MESSAGE="❌ Ошибка при выпуске сертификата для ${cert_name}: \n $output"
+      LAST_ERROR_MESSAGE="❌ Ошибка при выпуске сертификата для ${cert_name}:\n$output"
       echo "$LAST_ERROR_MESSAGE" >&2
       exit 1 
     fi
@@ -60,12 +86,12 @@ issue_if_missing() {
   fi
 }
 
-
 # --- Выпуск всех нужных сертификатов --- 
-issue_if_missing "${DOMAIN}" "${DOMAIN}"        # 1c.kalmykov.group
-issue_if_missing "${DOMAIN_RDP_SERVER}" "${DOMAIN_RDP_SERVER}"        # 1c.kalmykov.group
-issue_if_missing "${DOMAIN_RDP_HASPD}" "${DOMAIN_RDP_HASPD}"        # 1c.kalmykov.group
+issue_if_missing_or_expired "${DOMAIN}" "${DOMAIN}"
+issue_if_missing_or_expired "${DOMAIN_RDP_SERVER}" "${DOMAIN_RDP_SERVER}"
+issue_if_missing_or_expired "${DOMAIN_RDP_HASPD}" "${DOMAIN_RDP_HASPD}"
 
+# --- Ручной запуск renew ---
 echo "🔁 Проверка продления сертификатов при запуске..." 
 if ! certbot renew \
   --quiet \
@@ -95,4 +121,3 @@ echo "🗓  Cron‑задача для продления создана: $RENEW
 
 echo "🚀 Запуск cron (foreground)..."
 cron -f
-

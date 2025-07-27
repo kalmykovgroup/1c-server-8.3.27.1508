@@ -63,6 +63,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libdbus-glib-1-2 \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+
+# Виртуальный X-сервер для headless GUI (для запуска 1cv8 /Execute без DISPLAY)
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
  
 # (Удаленный рабочий стол )
 RUN adduser xrdp ssl-cert
@@ -111,6 +116,8 @@ RUN chmod +x /tmp/installer/*.run && chmod +x /tmp/installer/installAsRoot && \
 # client_thin_fib             -  Тонкий клиент с ФИАС (геокодирование).
 # desktop_icons               -  Ярлыки на рабочем столе (бессмысленно в контейнере).
 
+#RUN groupadd -r grp1cv8 && useradd -r -g grp1cv8 -s /bin/false usr1cv8 || true  # "|| true" на случай, если уже создан
+
 RUN apt-get update \
  && add-apt-repository universe \
  && apt-get update && apt-get install -y sudo
@@ -135,6 +142,10 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 RUN mkdir -p ${APACHE_PUBLICATION_CONF_DIR} && \
     chmod 755 ${APACHE_PUBLICATION_CONF_DIR}
 
+
+# Копируем скрипты VBEP
+COPY scripts/ /opt/scripts/
+RUN chmod +r /opt/scripts/*.vbep
 
 # --- Запуск ---
 CMD ["/usr/local/bin/entrypoint.sh"]

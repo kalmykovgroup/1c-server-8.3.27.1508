@@ -7,6 +7,12 @@ SCRIPT_NAME="init-ib.sh (1c-server)"
 source ${NOTIFY_SH}
 trap 'handle_exit' EXIT
 
+: "${DEFAULT_USER_LOGIN_FILE:?❌ DEFAULT_USER_LOGIN_FILE не задан!}"
+: "${DEFAULT_USER_PASSWORD_FILE:?❌ DEFAULT_USER_PASSWORD_FILE не задан!}"
+
+DEFAULT_USER_LOGIN=$(< "${DEFAULT_USER_LOGIN_FILE}")
+DEFAULT_USER_PASSWORD=$(< "${DEFAULT_USER_PASSWORD_FILE}")
+
 # Проверка доступности psql
 for i in {1..60}; do
     if command -v psql >/dev/null; then
@@ -153,3 +159,31 @@ sync
 echo "📄 Содержимое marker-файла:"
 cat "$MARKER_FILE"
 echo "✅ Marker файл создан: $MARKER_FILE"
+
+VBEP_SCRIPT="/tmp/create-user.vbep"
+ 
+cat > "$VBEP_SCRIPT" <<EOF
+Пользователь = Новый ПользовательИнформационнойБазы;
+Пользователь.Имя = "${DEFAULT_USER_LOGIN}";
+Пользователь.Пароль = "${DEFAULT_USER_PASSWORD}";
+Пользователь.ИнтерактивныйПользователь = Истина;
+Пользователь.Записать();
+EOF
+
+
+echo "👤 Создание системного пользователя '${DEFAULT_USER_LOGIN}'..."
+
+if xvfb-run -a "${PATH_TO_1C}/1cv8" DESIGNER \
+  /S"Srvr=${DOMAIN};Ref=${IB_NAME}" \
+  /N"Администратор" /P"" \
+  /Execute"$VBEP_SCRIPT" \
+  /DisableStartupDialogs \
+  /DisableGUI; then
+    
+    echo "✅ Пользователь '${DEFAULT_USER_LOGIN}' создан."
+else
+    LAST_ERROR_MESSAGE="❌ Ошибка при создании пользователя через VBEP!"
+    echo "$LAST_ERROR_MESSAGE" >&2
+    exit 1
+fi
+

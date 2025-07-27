@@ -8,7 +8,7 @@ services:
         - PG_CONF_DIR=${PG_CONF_DIR}
         - PG_BIN_DIR=${PG_BIN_DIR}
     container_name: pgsql
-    restart: unless-stopped
+    #restart: unless-stopped
     volumes:
       - pg-data-1c:${PG_DATA_DIR}  # 👈 Данные БД   
       - ./pgsql/logs:/var/lib/postgresql/16/main/log
@@ -18,7 +18,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_DB: ${POSTGRES_DB}
       PG_DATA_DIR: ${PG_DATA_DIR}
-      PG_CONF_DIR: ${PG_CONF_DIR} 
+      PG_CONF_DIR: ${PG_CONF_DIR}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       NOTIFY_SH: /opt/scripts/notify.sh
       LANG: ${LANG}
@@ -27,8 +27,8 @@ services:
     networks:
       - internal_pgsql
     secrets:
-      - postgres_password 
-    
+      - postgres_password
+  
   server:
     build:
       context: ./1c-server
@@ -40,14 +40,14 @@ services:
         - LICENSES=${LICENSES}
         - HASP=${HASP}
         - PATH_TO_1C=${PATH_TO_1C}
-        - WS_PUBLIC_DIR=${WS_PUBLIC_DIR}   
+        - WS_PUBLIC_DIR=${WS_PUBLIC_DIR}
         - APACHE_PUBLICATION_CONF_DIR=${APACHE_PUBLICATION_CONF_DIR}
     container_name: server
-    restart: unless-stopped
+    #restart: unless-stopped
     hostname: ${DOMAIN}  # 👈 ОБЯЗАТЕЛЬНО
     depends_on:
       - pgsql
-    ports: 
+    ports:
       - "1540"  # ragent (тонкие клиенты)
       - "1541"  # rmngr/rphost
       - "1545"  # ras (администрирование)
@@ -59,11 +59,11 @@ services:
       - 1c-data:${ONEC_DATA}      # Основные данные кластера 
       - ./1c-server/logs/:${LOG_DIR}/      # Логи 
       - ./1c-server/logs/apache2:${APACHE_LOG}      # Логи apache2
-      - ./1c-server/licenses/:${LICENSES}/       
-      - 1c-user-home:${ONEC_DATA_COMMON} 
-      - ./.env:/env/.env:ro  
-      - ./1c-server/web-config/publication:${APACHE_PUBLICATION_CONF_DIR} 
-      - ./1c-server/web-config/vrd:/var/www/ws
+      - ./1c-server/licenses/:${LICENSES}/
+      - 1c-user-home:${ONEC_DATA_COMMON}
+      - ./.env:/env/.env:ro
+      - 1c-server_web-config-publication:${APACHE_PUBLICATION_CONF_DIR}
+      - 1c-server_web-config-vrd:/var/www/ws
       - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -75,8 +75,11 @@ services:
       ONEC_VERSION: ${ONEC_VERSION}
       ONEC_PORT_RANGE: ${ONEC_PORT_RANGE}
       CLUSTER_PORT_RAGENT: ${CLUSTER_PORT_RAGENT}
+      APACHE_LOG: ${APACHE_LOG}
       DOMAIN: ${DOMAIN}
       NOTIFY_SH: /opt/scripts/notify.sh
+      DEFAULT_USER_LOGIN_FILE: /run/secrets/default_user_1c_login
+      DEFAULT_USER_PASSWORD_FILE: /run/secrets/default_user_1c_password
     networks:
       rdp-net:  # Для VNC
       internal_pgsql:  # Для связи с PostgreSQL 
@@ -86,6 +89,8 @@ services:
     secrets:
       - postgres_password
       - rdp_server_pass
+      - default_user_1c_login
+      - default_user_1c_password
 
   haspd:  # Мэнеджер лицензий HASP
     build:
@@ -94,7 +99,7 @@ services:
         - LOG_DIR=${LOG_DIR}
         - BIN=${BIN}
     container_name: haspd
-    restart: unless-stopped
+    #restart: unless-stopped
     hostname: ${DOMAIN}
     ports:
       - "3389" #RDP
@@ -115,7 +120,7 @@ services:
   nginx:
     build: ./nginx
     container_name: nginx
-    restart: unless-stopped 
+    #restart: unless-stopped 
     ports:
       - "1540:1540" # 1c # ragent (тонкие клиенты) точка входа для тонких клиентов
       - "1541:1541" # 1c # rmngr/rphost
@@ -142,18 +147,18 @@ services:
       PROXMOX_PORT: ${PROXMOX_PORT}
       DOMAIN_RDP_SERVER: ${DOMAIN_RDP_SERVER}
       DOMAIN_RDP_HASPD: ${DOMAIN_RDP_HASPD}
-      NOTIFY_SH: /opt/scripts/notify.sh 
+      NOTIFY_SH: /opt/scripts/notify.sh
     networks:
       - public # Для связи с внешним миром
       - private # Для связи с server 
       - rdp-net
 
   certbot:
-    build: ./certbot 
+    build: ./certbot
     container_name: certbot
-    restart: unless-stopped
+    #restart: unless-stopped
     volumes:
-      - ./nginx/certbot/conf:/etc/letsencrypt 
+      - ./nginx/certbot/conf:/etc/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock
       - ./secrets/notify.sh:/opt/scripts/notify.sh:ro
     environment:
@@ -166,31 +171,35 @@ services:
     networks:
       - public # Для связи с внешним миром
     secrets:
-      - cloudflare 
-      
+      - cloudflare
+
 networks:
   internal_pgsql:
     internal: true  # Скрытая сеть (1C <-> PostgreSQL) 
   public:
     driver: bridge  # Обычная сеть для nginx 
   private:
-    internal: true  
   rdp-net:
-    driver: bridge  
+    driver: bridge
 volumes:
   pg-data-1c: #postgres хранит базы данных 
   1c-data: #1с хранит информацию о кластерах 
   1c-user-home: #Общая папка для кеша и еще чего-то
   hasplm-data: # hasplm - Это служба от Guardant / SafeNet, которая нужна для работы HASP. 1С использует HASP (лицензионный менеджер) 
-  
+  1c-server_web-config-publication:
+  1c-server_web-config-vrd:
 secrets:
+  default_user_1c_login:
+    file: ./secrets/default_user_1c_login.txt
+  default_user_1c_password:
+    file: ./secrets/default_user_1c_password.txt
   postgres_password:
     file: ./secrets/postgres_password.txt
-  rdp_server_pass:  
+  rdp_server_pass:
     file: ./secrets/rdp_server_pass.txt
-  rdp_haspd_pass:  
+  rdp_haspd_pass:
     file: ./secrets/rdp_haspd_pass.txt
-  cloudflare:  
+  cloudflare:
     file: ./secrets/cloudflare.ini
-  rclone_config:  
+  rclone_config:
     file: ./secrets/rclone.conf 

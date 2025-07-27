@@ -24,4 +24,5 @@ echo "🚀 Запуск ragent..."
 exec "${PATH_TO_1C}/ragent" \
     -d "$DATA" \
     -port 1540 \
-    -range "$ONEC_PORT_RANGE"
+    -regport 1541
+    -range "$ONEC_PORT_RANGE" -debug

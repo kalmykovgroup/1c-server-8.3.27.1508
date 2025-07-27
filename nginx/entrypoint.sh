@@ -75,8 +75,12 @@ fi
 
 echo "📁 Список /etc/nginx/conf.d после генерации:"
 ls -l /etc/nginx/conf.d
+
 echo "📄 Содержимое default.conf:"
 cat /etc/nginx/conf.d/default.conf 
+
+echo "📄 Содержимое proxmox.conf:"
+cat /etc/nginx/conf.d/proxmox.conf 
 
 echo "📁 Список /etc/nginx/stream.d после генерации:"
 ls -l /etc/nginx/stream.d

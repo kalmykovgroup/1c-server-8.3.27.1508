@@ -90,9 +90,12 @@ chmod 440 /etc/sudoers.d/1c-thinclient
 # Удаляем PID-файл XRDP (на случай падения)
 rm -f /var/run/xrdp/xrdp-sesman.pid
 
+#chown -R usr1cv8:grp1cv8 ${DATA} ${LOG_DIR} ${CACHE} ${LICENSES}
+
 # --- Supervisor ---
 echo "📄 Генерируем supervisord.conf из шаблона..."
 envsubst < /etc/supervisord.template.conf > /etc/supervisord.conf
 
-echo "🚀 Запускаем supervisord..."
+#cat /etc/supervisord.conf
+ 
 exec /usr/bin/supervisord -c /etc/supervisord.conf
